@@ -185,6 +185,65 @@
         .badge-claude { background-color: #fdf2f8; color: #be185d; border: 1px solid #fbcfe8; }
         .badge-codex { background-color: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
         .badge-agy { background-color: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+        .badge-human { background-color: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
+        .delegation-panel {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-left: 4px solid #4f46e5;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+        }
+        .delegation-panel h4 {
+            margin-top: 0;
+            margin-bottom: 0.5rem;
+            color: #312e81;
+            font-size: 1.15rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .delegation-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+            margin-top: 1.5rem;
+        }
+        @media (min-width: 768px) {
+            .delegation-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+        .delegation-card {
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+        }
+        .delegation-card h4 {
+            margin-top: 0;
+            margin-bottom: 0.75rem;
+            font-size: 1.05rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .delegation-card.auto h4 { color: #007466; }
+        .delegation-card.human h4 { color: #b45309; }
+        .delegation-card ul {
+            padding-left: 1.25rem;
+            margin-bottom: 0;
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+        .delegation-card li {
+            margin-bottom: 0.6rem;
+            line-height: 1.5;
+        }
+        .delegation-card li strong {
+            color: var(--text-main);
+        }
         .mermaid {
             background: var(--white);
             border: 1px solid var(--border);
@@ -243,36 +302,69 @@
             <span>Architecture</span>
             <h3>진행 아이디어 및 아키텍처</h3>
         </div>
-        <p>사용자와 Hermes Agent가 상호작용하며, Pipeline이 각 단계별 AI 모델에게 작업을 지시합니다. 중요한 점은 <strong>AI가 모든 것을 알아서 끝내는 것이 아니라, 각 주요 단계마다 사용자와 지속적으로 의사소통</strong>한다는 점입니다.</p>
-        <p>예를 들어 기획/설계가 끝나면 사용자에게 "이 스펙대로 구현할까요?"라고 <strong>승인을 요청</strong>하고, 치명적인 리뷰 결과가 나오면 <strong>수정 방향을 제안하고 확인</strong>받습니다.</p>
+        <p>사용자와 Hermes Agent 사이에 <strong>Claude Code CLI (Claude Opus 5.5 모델)</strong>를 <strong>위임 구동자(Delegated Driver)</strong>로 배치하여, 반복적인 파이프라인 지휘와 기계적 판단을 자율 구동합니다. 개발자가 매 턴마다 세부적인 로그 확인과 기계적 오류 수정에 일일이 개입하는 피로도를 해소하면서도, 핵심 의사결정은 사람이 최종 통제하는 <strong>Human-in-the-loop 원칙을 견고하게 유지</strong>합니다.</p>
+        <p>Claude Code(Opus 5.5)는 Hermes를 비대화형으로 세션 구동하고, 실행 직후 작업 공간의 보고서, 운영 원장, 검사 증거를 직접 읽고 분석하여 후속 조치를 스스로 판단하거나 사용자에게 에스컬레이션합니다.</p>
 
         <div class="mermaid">
         flowchart TD
-            User[사용자 및 개발자] <--> |지시 / 단계별 승인 및 제안 확인| Hermes[Hermes Agent]
-            Hermes --> |작업 스케줄링| Pipeline[Pipeline Scripts Node.js]
+            User["사용자 및 개발자"] <--> |"상위 의사결정 / 슬라이스 수용 검토 / 예산 승인"| ClaudeDelegator["위임 구동자: Claude Code CLI (Opus 5.5)"]
+            ClaudeDelegator <--> |"비대화형 실행 (hermes chat -Q) / 보고서·원장 직접 분석 / 위임 지시 하달"| Hermes["Hermes Agent (지휘·등록·검사·증거)"]
+            Hermes --> |"작업 스케줄링 및 파이프라인 관리"| Pipeline["Pipeline Scripts (Node.js)"]
             
-            subgraph AI_CLI_Workers
-                Claude[Claude Code CLI - 설계 스펙 리뷰]
-                Codex[Codex CLI - 코드 구현]
-                AGY[Antigravity CLI - 테스트 보안검토]
+            subgraph AI_CLI_Workers ["하위 AI CLI 작업자 (Workers)"]
+                ClaudeWorker["Claude Code CLI (설계 / 스펙 / 리뷰)"]
+                CodexWorker["Codex CLI (코드 구현 / 수정)"]
+                AGYWorker["Antigravity CLI (테스트 작성 / 보안 검토)"]
             end
             
-            Pipeline --> |1단계 기획 설계| Claude
-            Pipeline --> |2단계 테스트 작성| AGY
-            Pipeline --> |3단계 코드 구현| Codex
-            Pipeline --> |4단계 코드 리뷰| Claude
-            Pipeline --> |4단계 보안 검토| AGY
+            Pipeline --> |"1단계 기획·설계"| ClaudeWorker
+            Pipeline --> |"2단계 테스트 작성"| AGYWorker
+            Pipeline --> |"3단계 코드 구현"| CodexWorker
+            Pipeline --> |"4단계 코드 리뷰"| ClaudeWorker
+            Pipeline --> |"4단계 보안 검토"| AGYWorker
             
-            Claude -.-> |피드백| Pipeline
-            Codex -.-> |파일수정| Workspace[로컬 Worktree 격리 브랜치]
-            AGY -.-> |테스트작성| Workspace
+            ClaudeWorker -.-> |"피드백"| Pipeline
+            CodexWorker -.-> |"파일 수정"| Workspace["로컬 Worktree 격리 브랜치"]
+            AGYWorker -.-> |"테스트 작성"| Workspace
             
-            Workspace --> |PR 및 리뷰 요청| Human[사람 최종 검토 및 테스트]
-            Human --> |수동 배포 CI CD| LiveSystem[운영 Live 시스템]
+            Workspace --> |"PR 및 최종 수용 검토 요청"| User
+            User --> |"수동 승인 및 운영 배포 (CI/CD)"| LiveSystem["운영 Live 시스템"]
             
             style LiveSystem fill:#e11d48,color:#fff,stroke:#9f1239
             style Workspace fill:#10b981,color:#fff,stroke:#047857
-            style Human fill:#f59e0b,color:#fff,stroke:#b45309
+            style ClaudeDelegator fill:#312e81,color:#fff,stroke:#4338ca
+            style Hermes fill:#0f766e,color:#fff,stroke:#115e59
+            style User fill:#0f172a,color:#fff,stroke:#334155
+        </div>
+
+        <div class="delegation-panel">
+            <h4>⚡ Claude Code CLI (Opus 5.5) 위임 구동 체계</h4>
+            <p style="margin-bottom: 0.5rem; color: var(--text-main);">
+                Claude Code는 <code>hermes chat -Q -s dev-pipeline --resume &lt;세션&gt; --query-file &lt;지시파일&gt;</code> 형태로 Hermes를 비대화형 구동합니다.
+                지시마다 <code>[위임 구동: Claude Code]</code> 식별 표식을 달아 Hermes 원장에 사용자 직접 메시지와 구분하여 보존하며, 사전에 합의된 명문화된 규칙(<code>Docs/2026-10-09-hermes-delegation-rules.md</code>)에 따라 운영됩니다.
+            </p>
+        </div>
+
+        <div class="delegation-grid">
+            <div class="delegation-card auto">
+                <h4>🤖 자율 위임 범위 (Opus 5.5 자율 처리)</h4>
+                <ul>
+                    <li><strong>호출 예산 봉투(Envelope) 관리:</strong> 슬라이스 단위로 부여된 작업자 호출 상한(25~35회) 내에서 단계별 최적 배분 및 소비 추적</li>
+                    <li><strong>기계적 결함 자동 교정:</strong> 코드 본문 왜곡 없이 엄격한 대조로 검증되는 패치 오류(<code>git apply --recount</code>)나 추출 형식 오류 즉시 해결</li>
+                    <li><strong>사전 승인된 모델 교체:</strong> 출력 한도 초과 등 실패 시 승인 규칙표에 의거하여 대체 모델(예: agy Opus 4.6 Thinking)로 자동 전환</li>
+                    <li><strong>명세 빈틈의 기술적 보완:</strong> 요구사항·보안에 영향 없는 기술적 표기나 형식(포인터 표현, 오류 형식 등)을 자율 결정하고, 모든 결정은 결정 원장(<code>delegated-decisions.md</code>)에 근거와 함께 투명하게 기록</li>
+                </ul>
+            </div>
+            <div class="delegation-card human">
+                <h4>👤 사용자 에스컬레이션 (Human-in-the-Loop)</h4>
+                <ul>
+                    <li><strong>예산 및 비용 상한:</strong> 슬라이스별 봉투 예산 소진 또는 일일 관측 비용 상한($40) 도달 시 작업 중단 후 승인 요청</li>
+                    <li><strong>요구사항 및 기준 변경:</strong> 프로젝트 범위 축소/확대, 기능 스펙 변경, 수용 기준(Acceptance Criteria) 수정</li>
+                    <li><strong>미승인 모델 및 설정 변경:</strong> 규칙표에 없는 임의 모델 투입, <code>roles.json</code> 및 파이프라인 프레임워크 설정 변경</li>
+                    <li><strong>연속 실패 방어선:</strong> 동일 단계에서 3회 연속 실패 발생 시 무한 루프를 방지하고 인간에게 즉각 보고</li>
+                    <li><strong>최종 판정 및 배포:</strong> 슬라이스 결과물의 최종 수용 판정과 메인 브랜치 병합(Merge) 및 운영 Live 시스템 배포</li>
+                </ul>
+            </div>
         </div>
 
         <div class="feature-title">
@@ -312,6 +404,12 @@
                 </tr>
             </thead>
             <tbody>
+                <tr style="background-color: #fdf4ff;">
+                    <td><strong>파이프라인 위임 구동<br>(Delegated Driver)</strong></td>
+                    <td><span class="badge badge-claude">Claude Code (Opus 5.5)</span></td>
+                    <td><span class="badge badge-human">사용자 직접 구동 (Human)</span></td>
+                    <td><strong>사용자-Hermes 간 위임 구동자.</strong> 비대화형 세션 실행(<code>hermes chat -Q</code>), 보고서·원장 실시간 분석, 명세 빈틈/모델 교체 등 위임 규칙에 따른 자율 지휘 및 결정 원장 기록.</td>
+                </tr>
                 <tr>
                     <td><strong>기획 / 설계 / 스펙</strong></td>
                     <td><span class="badge badge-claude">Claude Code (Opus 5.5 / Sonnet 5.5)</span></td>
