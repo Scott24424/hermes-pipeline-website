@@ -182,11 +182,11 @@
             font-weight: 600;
             margin: 0.1rem;
         }
-        .badge-claude { background-color: #fdf2f8; color: #be185d; border: 1px solid #fbcfe8; }
-        .badge-codex { background-color: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
-        .badge-agy { background-color: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
-        .badge-deepseek { background-color: #e0f2fe; color: #0284c7; border: 1px solid #bae6fd; }
-        .badge-human { background-color: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
+        .badge-claude { background-color: #fff7ed; color: #c2410c; border: 1px solid #fdba74; }
+        .badge-agy { background-color: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+        .badge-codex { background-color: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+        .badge-deepseek { background-color: #eef2ff; color: #3730a3; border: 1px solid #c7d2fe; }
+        .badge-human { background-color: #faf5ff; color: #6b21a8; border: 1px solid #e9d5ff; }
         .status-pill {
             display: inline-block;
             font-size: 0.72rem;
@@ -449,6 +449,10 @@
             style DualDelegator fill:#312e81,color:#fff,stroke:#4338ca
             style Hermes fill:#0f766e,color:#fff,stroke:#115e59
             style User fill:#0f172a,color:#fff,stroke:#334155
+            style ClaudeWorker fill:#fff7ed,stroke:#ea580c,color:#c2410c
+            style CodexWorker fill:#ecfdf5,stroke:#10a37f,color:#047857
+            style DeepSeekWorker fill:#eef2ff,stroke:#4d6bfe,color:#3730a3
+            style AGYWorker fill:#eff6ff,stroke:#2563eb,color:#1d4ed8
         </div>
 
         <div class="delegation-panel">
@@ -550,6 +554,14 @@
             <span>Roles</span>
             <h3>단계별 AI 모델 사용 역할표</h3>
             <span class="status-tag">Multi-Provider</span>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 1.25rem; background: var(--bg-light); padding: 0.75rem 1rem; border-radius: 6px; border: 1px solid var(--border);">
+            <span style="font-weight: 600; font-size: 0.85rem; color: var(--text-muted); margin-right: 4px;">공급사별 브랜드 컬러:</span>
+            <span class="badge badge-claude">Claude (Anthropic 주황)</span>
+            <span class="badge badge-agy">AGY (Google 파랑)</span>
+            <span class="badge badge-codex">Codex (OpenAI 초록)</span>
+            <span class="badge badge-deepseek">DeepSeek (DeepSeek 블루)</span>
+            <span class="badge badge-human">Human (직접 제어 보라)</span>
         </div>
         <table class="data-table">
             <thead>
