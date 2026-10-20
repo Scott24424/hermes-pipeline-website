@@ -373,12 +373,12 @@
                 <div class="label">최신 승인 명세 (Canonical)</div>
             </div>
             <div class="metric-box">
-                <div class="number">597 / 597</div>
-                <div class="label">전체 통과 테스트 (Node 550 + Py 47)</div>
+                <div class="number">639 / 639</div>
+                <div class="label">전체 통과 테스트 (Node 586 + Py 53)</div>
             </div>
             <div class="metric-box">
-                <div class="number">3 / 4 수용</div>
-                <div class="label">슬라이스 완료 (조각 4 리허설 중)</div>
+                <div class="number">4 / 4 완료</div>
+                <div class="label">전체 슬라이스 수용 & main 병합</div>
             </div>
             <div class="metric-box">
                 <div class="number">4대 AI 계열</div>
@@ -461,6 +461,9 @@
                 위임 구동자는 <code>hermes chat -Q -s dev-pipeline --resume &lt;세션&gt; --query-file &lt;지시파일&gt;</code> 형태로 비대화형 실행을 수행합니다.
                 지시마다 <code>[위임 구동: Claude Code]</code> 또는 <code>[위임 구동: Codex]</code> 식별 표식을 달아 Hermes 원장에 기록하며, 파일 기반 인수인계 체계(<code>Docs/hermes-driver-handoff.md</code>)를 통해 구동자가 바뀌어도 작업 연속성을 완벽하게 보장합니다.
             </p>
+            <p style="margin: 0; font-size: 0.9rem; color: #4338ca;">
+                <strong>최신 업데이트 (D-92, D-95):</strong> agy <code>--json-schema</code> 구조화 리뷰 정식 반영으로 모델의 형식 오류를 원천 차단하며, 위임 규칙 4.7조 개정을 통해 자격증명을 제외한 실자료의 등록 공급자 전송 체계를 정립했습니다.
+            </p>
         </div>
 
         <div class="delegation-grid">
@@ -535,17 +538,17 @@
                 </div>
             </div>
 
-            <div class="slice-card in-progress">
+            <div class="slice-card completed">
                 <div>
                     <div class="slice-header">
-                        <h4>Slice 4: 실전 데모 리허설 & 통합</h4>
-                        <span class="status-pill active">리허설 가동 중</span>
+                        <h4>Slice 4: 실전 데모 리허설 & 통합 완료</h4>
+                        <span class="status-pill done">수용 완료 & 병합</span>
                     </div>
-                    <p>DeepSeek V4.1 Flash 대규모 TDD 테스트 작성 투입, 다중 공급자 실전 검증, 엔드투엔드 파이프라인 무인 가동 리허설 진행.</p>
+                    <p>실전 데모 리허설 성공 (인간 실시간 승인·비준 SEQ1/5/9 완료), DeepSeek V4.1 Flash TDD 테스트 작성, S1 보안 강화(#36, #37 게이트) 통과 후 전체 main 브랜치 통합 병합 완료.</p>
                 </div>
                 <div class="slice-meta">
-                    <span>브랜치: agent/slice4</span>
-                    <span>봉투: 63회 (가동 중)</span>
+                    <span>통합 커밋: beb7ab6 @ 91241ef</span>
+                    <span>전체 테스트: 639/639 PASS</span>
                 </div>
             </div>
         </div>
@@ -592,10 +595,16 @@
                     <td>작성된 스펙의 모순점 및 명세 공백 엄격 검토. AGY에서 대안 모델 활용 가능.</td>
                 </tr>
                 <tr>
+                    <td><strong>명세 보조 검토<br>(spec-review-assist)</strong></td>
+                    <td><span class="badge badge-agy">AGY (Gemini 3.8 Flash High)</span></td>
+                    <td><span class="badge badge-codex">Codex (gpt-6.1-sol)</span></td>
+                    <td><strong>신규 공식 역할 (D-94, D-95).</strong> 인용 Enum 기반 정밀 명세 대조 및 2순위 보조 검토. <code>--json-schema</code> 구조화 출력 적용.</td>
+                </tr>
+                <tr>
                     <td><strong>테스트 코드 작성 (TDD)</strong></td>
                     <td><span class="badge badge-deepseek">DeepSeek V4.1 Flash (공식 API)</span><br><span class="badge badge-agy">AGY (Gemini 3.8 Flash)</span></td>
                     <td><span class="badge badge-claude">Claude Code (Sonnet 5.5)</span></td>
-                    <td>복잡한 상태/계약 테스트는 DeepSeek V4.1 Flash(비용 90% 절감), 순수 단위 테스트는 Gemini 3.8 Flash가 작성.</td>
+                    <td>복잡한 상태/계약 테스트(#36, #37, S1)는 DeepSeek V4.1 Flash(비용 90% 절감), 순수 단위 테스트는 Gemini 3.8 Flash가 작성.</td>
                 </tr>
                 <tr>
                     <td><strong>제품 코드 구현 및 수정</strong></td>
@@ -604,8 +613,14 @@
                     <td>테스트 코드를 통과하는 실제 제품 코드를 로컬 Worktree 격리 브랜치에 작성.</td>
                 </tr>
                 <tr>
-                    <td><strong>보안 및 코드 리뷰</strong></td>
-                    <td><span class="badge badge-agy">AGY (Gemini 3.8 Flash)</span><br><span class="badge badge-claude">Claude Code (Opus 5.5)</span></td>
+                    <td><strong>소규모 구현 보조 리뷰<br>(impl-review-small)</strong></td>
+                    <td><span class="badge badge-agy">AGY (Gemini 3.8 Flash High)</span></td>
+                    <td><span class="badge badge-claude">Claude Code (Sonnet 5.5)</span></td>
+                    <td><strong>신규 공식 역할 (D-94, D-95).</strong> 소규모 코드 변경분에 대한 빠른 논리적 오류 검토. D-95 <code>--json-schema</code> 강제로 형식 오류 100% 차단.</td>
+                </tr>
+                <tr>
+                    <td><strong>보안 및 심층 코드 리뷰</strong></td>
+                    <td><span class="badge badge-claude">Claude Code (Opus 5.5)</span><br><span class="badge badge-agy">AGY (Gemini 3.8 Flash)</span></td>
                     <td><span class="badge badge-agy">AGY (Opus 4.6 Thinking)</span></td>
                     <td>DeepSeek은 보안 결함 검출 한계로 배제. Gemini 3.8 Flash의 독립 시각과 Claude의 심층 리뷰 결합.</td>
                 </tr>
