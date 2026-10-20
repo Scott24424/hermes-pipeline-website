@@ -1,0 +1,1324 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hermes 멀티 에이전트 AI 개발 파이프라인</title>
+<meta name="description" content="Hermes를 오케스트레이터로 Claude·Codex·Gemini·DeepSeek가 한 팀처럼 개발하고, 사람은 결정만 하는 AI 개발 파이프라인 소개">
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+:root {
+  --ink: #15171c;
+  --ink-2: #3a3f4a;
+  --muted: #6b7180;
+  --line: #e4e1d8;
+  --paper: #f8f6f1;
+  --card: #ffffff;
+  --night: #0c1018;
+  --night-2: #141a26;
+  --gold: #e0a526;
+  --gold-soft: #fbf1d9;
+  --claude: #d97757;
+  --claude-soft: #fbece6;
+  --openai: #10a37f;
+  --openai-soft: #e3f5ef;
+  --google: #3b7cf0;
+  --google-soft: #e6effe;
+  --deepseek: #5b5ff5;
+  --deepseek-soft: #ecebfe;
+  --human: #8b5cf6;
+  --human-soft: #f1ebfe;
+  --red: #d9534f;
+  --green: #1f9d63;
+  --radius: 14px;
+  --shadow: 0 1px 2px rgba(20, 22, 28, .04), 0 8px 24px rgba(20, 22, 28, .06);
+  --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --wrap: 1160px;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 76px; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body {
+  margin: 0;
+  font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  color: var(--ink);
+  background: var(--paper);
+  line-height: 1.7;
+  font-size: 16.5px;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: inherit; }
+code, .mono { font-family: var(--mono); font-size: .86em; }
+code { background: rgba(20, 22, 28, .06); padding: .1em .4em; border-radius: 5px; }
+h1, h2, h3, h4 { line-height: 1.3; letter-spacing: -0.02em; margin: 0; }
+p { margin: 0 0 1em; }
+.wrap { max-width: var(--wrap); margin: 0 auto; padding: 0 24px; }
+
+/* ---------- Top navigation ---------- */
+.nav {
+  position: sticky; top: 0; z-index: 50;
+  background: rgba(12, 16, 24, .86);
+  backdrop-filter: saturate(160%) blur(12px);
+  -webkit-backdrop-filter: saturate(160%) blur(12px);
+  color: #fff;
+  border-bottom: 1px solid rgba(255, 255, 255, .08);
+}
+.nav .wrap { display: flex; align-items: center; gap: 20px; height: 60px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 800; text-decoration: none; white-space: nowrap; }
+.brand-mark {
+  width: 28px; height: 28px; border-radius: 8px;
+  background: conic-gradient(from 200deg, var(--gold), #f6d27a, var(--gold));
+  display: grid; place-items: center; color: var(--night); font-weight: 900; font-size: 15px;
+}
+.nav-links {
+  display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; flex: 1;
+  scroll-target-group: auto;
+}
+.nav-links::-webkit-scrollbar { display: none; }
+.nav-links, .hero-grid > *, .tldr > *, .num-grid > *, .next > *, .grid > *, .foot-grid > * { min-width: 0; }
+.nav-links a {
+  text-decoration: none; font-size: 14px; color: rgba(255, 255, 255, .66);
+  padding: 6px 11px; border-radius: 999px; white-space: nowrap; transition: color .2s, background .2s;
+}
+.nav-links a:hover { color: #fff; background: rgba(255, 255, 255, .08); }
+.nav-links a:is(:target-current, .\:target-current) { color: var(--night); background: var(--gold); font-weight: 700; }
+.present-btn {
+  border: 1px solid rgba(255, 255, 255, .25); background: transparent; color: #fff;
+  border-radius: 999px; padding: 6px 14px; font: inherit; font-size: 13px; cursor: pointer; white-space: nowrap;
+}
+.present-btn:hover { background: rgba(255, 255, 255, .1); }
+.present-btn[aria-pressed="true"] { background: var(--gold); color: var(--night); border-color: var(--gold); font-weight: 700; }
+
+/* ---------- Hero ---------- */
+.hero {
+  background:
+    radial-gradient(900px 500px at 85% 20%, rgba(224, 165, 38, .16), transparent 60%),
+    radial-gradient(700px 500px at 0% 100%, rgba(91, 95, 245, .18), transparent 60%),
+    var(--night);
+  color: #fff; padding: 72px 0 64px; overflow: hidden;
+}
+.hero-grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 48px; align-items: center; }
+.eyebrow-pill {
+  display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: #f6d27a;
+  border: 1px solid rgba(224, 165, 38, .4); border-radius: 999px; padding: 5px 12px; margin-bottom: 22px;
+}
+.eyebrow-pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 0 4px rgba(224, 165, 38, .25); }
+.hero h1 { font-size: clamp(34px, 4.6vw, 56px); font-weight: 800; letter-spacing: -0.035em; }
+.hero h1 em { font-style: normal; color: var(--gold); }
+.hero .lead { font-size: 19px; color: rgba(255, 255, 255, .74); margin: 22px 0 30px; max-width: 560px; }
+.hero-cta { display: flex; gap: 10px; flex-wrap: wrap; }
+.btn {
+  display: inline-flex; align-items: center; gap: 8px; text-decoration: none; font-weight: 700; font-size: 15px;
+  padding: 12px 20px; border-radius: 10px; transition: transform .15s, background .2s;
+}
+.btn:hover { transform: translateY(-1px); }
+.btn-gold { background: var(--gold); color: var(--night); }
+.btn-ghost { border: 1px solid rgba(255, 255, 255, .22); color: #fff; }
+.btn-ghost:hover { background: rgba(255, 255, 255, .08); }
+.hero-svg { width: 100%; height: auto; max-width: 540px; justify-self: end; }
+.hero-svg text { font-family: inherit; }
+.stats {
+  display: grid; grid-template-columns: repeat(5, 1fr); gap: 1px; margin-top: 56px;
+  background: rgba(255, 255, 255, .1); border-radius: var(--radius); overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, .1);
+}
+.stat { background: var(--night-2); padding: 20px 18px; }
+.stat b { display: block; font-size: 28px; font-weight: 800; letter-spacing: -0.02em; color: #fff; }
+.stat span { font-size: 13px; color: rgba(255, 255, 255, .6); }
+
+/* ---------- Sections ---------- */
+section.block { padding: 96px 0; border-bottom: 1px solid var(--line); }
+section.block.alt { background: #fff; }
+section.block.dark { background: var(--night); color: #fff; border-bottom-color: transparent; }
+.sec-head { max-width: 760px; margin-bottom: 44px; }
+.sec-num { font-family: var(--mono); font-size: 13px; color: var(--muted); letter-spacing: .08em; display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.sec-num::before { content: ""; width: 28px; height: 2px; background: var(--gold); }
+.dark .sec-num { color: rgba(255, 255, 255, .55); }
+.dark code { background: rgba(255, 255, 255, .1); color: #f3e3bd; }
+.sec-head h2 { font-size: clamp(28px, 3.4vw, 40px); font-weight: 800; }
+.sec-head p { font-size: 18px; color: var(--ink-2); margin-top: 16px; }
+.dark .sec-head p { color: rgba(255, 255, 255, .72); }
+h3.sub { font-size: 21px; font-weight: 750; margin: 56px 0 18px; }
+
+.grid { display: grid; gap: 18px; }
+.g2 { grid-template-columns: repeat(2, 1fr); }
+.g3 { grid-template-columns: repeat(3, 1fr); }
+.g4 { grid-template-columns: repeat(4, 1fr); }
+.card {
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 24px; box-shadow: var(--shadow);
+}
+.alt .card { background: var(--paper); box-shadow: none; }
+.card h4 { font-size: 18px; font-weight: 750; margin-bottom: 8px; }
+.card p { color: var(--ink-2); font-size: 15.5px; margin: 0; }
+.card .icon { font-size: 26px; margin-bottom: 12px; display: block; }
+.card ul { margin: 10px 0 0; padding-left: 18px; color: var(--ink-2); font-size: 15px; }
+.card li { margin-bottom: 6px; }
+
+/* TL;DR */
+.tldr {
+  display: grid; grid-template-columns: 280px 1fr; gap: 0; border-radius: 18px; overflow: hidden;
+  border: 1px solid var(--line); background: #fff; box-shadow: var(--shadow);
+}
+.tldr-side { background: var(--gold-soft); padding: 30px; border-right: 1px solid #f0dfb3; }
+.tldr-side h3 { font-size: 22px; font-weight: 800; }
+.tldr-side p { color: #7a5a12; font-size: 14.5px; margin-top: 10px; }
+.tldr ol { margin: 0; padding: 30px 34px 30px 56px; display: grid; gap: 14px; }
+.tldr li { font-size: 17px; padding-left: 4px; }
+.tldr li::marker { color: var(--gold); font-weight: 800; }
+.tldr li b { font-weight: 750; }
+
+/* Team analogy */
+.team { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.member { border-radius: var(--radius); padding: 20px; border: 1px solid var(--line); background: #fff; position: relative; overflow: hidden; }
+.member::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 4px; background: var(--c, var(--gold)); }
+.member .role { font-size: 13px; color: var(--muted); }
+.member h4 { font-size: 18px; margin: 4px 0 8px; }
+.member p { font-size: 14.5px; color: var(--ink-2); margin: 0; }
+.member .who { display: inline-block; margin-top: 12px; font-size: 12.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: var(--cs, var(--gold-soft)); color: var(--c, #7a5a12); }
+
+/* Problem → goals */
+.problem { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.problem .card { display: flex; gap: 16px; align-items: flex-start; }
+.problem .card .icon { margin: 0; }
+.goals { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }
+.goal { background: var(--night); color: #fff; border-radius: var(--radius); padding: 22px 20px; }
+.goal .n { font-family: var(--mono); color: var(--gold); font-size: 13px; }
+.goal h4 { font-size: 18px; margin: 8px 0 8px; }
+.goal p { font-size: 14px; color: rgba(255, 255, 255, .7); margin: 0; }
+.callout {
+  margin-top: 22px; border-left: 4px solid var(--gold); background: var(--gold-soft);
+  padding: 16px 20px; border-radius: 0 10px 10px 0; font-size: 16px; color: #5c440d;
+}
+.callout b { color: #3d2d06; }
+
+/* Principles */
+.principles { counter-reset: p; display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+.principle { counter-increment: p; display: grid; grid-template-columns: 48px 1fr; gap: 14px; padding: 20px; border-radius: var(--radius); background: #fff; border: 1px solid var(--line); }
+.principle::before {
+  content: counter(p, decimal-leading-zero); font-family: var(--mono); font-weight: 700;
+  width: 48px; height: 48px; border-radius: 12px; display: grid; place-items: center;
+  background: var(--night); color: var(--gold);
+}
+.principle h4 { font-size: 17px; margin-bottom: 4px; }
+.principle p { margin: 0; font-size: 15px; color: var(--ink-2); }
+
+/* Architecture */
+.arch { display: grid; gap: 12px; }
+.layer {
+  display: grid; grid-template-columns: 210px 1fr; gap: 20px; align-items: center;
+  background: rgba(255, 255, 255, .04); border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: var(--radius); padding: 18px 22px; position: relative;
+}
+.layer + .layer::before {
+  content: "▼"; position: absolute; top: -17px; left: 100px; color: rgba(255, 255, 255, .35); font-size: 12px;
+}
+.layer .lname { font-weight: 800; font-size: 17px; }
+.layer .lname small { display: block; font-weight: 500; font-size: 13px; color: rgba(255, 255, 255, .55); }
+.layer .ldesc { color: rgba(255, 255, 255, .78); font-size: 15px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 650;
+  padding: 4px 10px; border-radius: 999px; border: 1px solid transparent; white-space: nowrap;
+}
+.chip::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.chip.claude { color: var(--claude); background: var(--claude-soft); }
+.chip.openai { color: var(--openai); background: var(--openai-soft); }
+.chip.google { color: var(--google); background: var(--google-soft); }
+.chip.deepseek { color: var(--deepseek); background: var(--deepseek-soft); }
+.chip.human { color: var(--human); background: var(--human-soft); }
+.chip.hermes { color: #9a6c06; background: var(--gold-soft); }
+.chip.script { color: #475066; background: #eceef3; }
+.dark .chip.claude { background: rgba(217, 119, 87, .16); }
+.dark .chip.openai { background: rgba(16, 163, 127, .16); }
+.dark .chip.google { background: rgba(59, 124, 240, .18); color: #7ea7f7; }
+.dark .chip.deepseek { background: rgba(91, 95, 245, .2); color: #9a9dfb; }
+.dark .chip.human { background: rgba(139, 92, 246, .2); color: #b69bfa; }
+.dark .chip.hermes { background: rgba(224, 165, 38, .18); color: var(--gold); }
+.dark .chip.script { background: rgba(255, 255, 255, .1); color: rgba(255, 255, 255, .8); }
+.layer.l-user { border-color: rgba(139, 92, 246, .5); }
+.layer.l-hermes { border-color: rgba(224, 165, 38, .55); background: rgba(224, 165, 38, .07); }
+.layer.l-ws { border-color: rgba(31, 157, 99, .5); }
+.arch-note { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 26px; }
+.arch-note div { border-top: 2px solid var(--gold); padding-top: 12px; font-size: 14.5px; color: rgba(255, 255, 255, .72); }
+.arch-note b { color: #fff; display: block; font-size: 15.5px; margin-bottom: 4px; }
+
+/* Flow stepper */
+.size-toggle { display: inline-flex; background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 4px; gap: 4px; margin-bottom: 10px; }
+.size-toggle button {
+  font: inherit; font-size: 14.5px; font-weight: 700; border: 0; background: transparent; color: var(--ink-2);
+  padding: 8px 16px; border-radius: 9px; cursor: pointer;
+}
+.size-toggle button[aria-pressed="true"] { background: var(--night); color: #fff; }
+.size-desc { font-size: 15px; color: var(--muted); margin: 0 0 24px; min-height: 1.6em; }
+.flow { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; counter-reset: none; }
+.step {
+  background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px;
+  display: grid; gap: 6px; transition: opacity .25s, filter .25s, border-color .25s; position: relative;
+}
+.step .sn { font-family: var(--mono); font-size: 12px; color: var(--muted); display: flex; justify-content: space-between; }
+.step h4 { font-size: 16.5px; }
+.step .actor { font-size: 14px; font-weight: 650; }
+.step .out { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.step.human { border-color: rgba(139, 92, 246, .5); background: var(--human-soft); }
+.step.script { background: #f4f5f8; }
+.step.skip { opacity: .38; filter: grayscale(1); }
+.step.skip .actor { text-decoration: line-through; }
+.step .tag { font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: var(--gold-soft); color: #7a5a12; }
+.flow-legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 18px; font-size: 13.5px; color: var(--muted); }
+.flow-legend span::before { content: "■ "; }
+.loop-note { margin-top: 18px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+
+/* Roles */
+.prov { border-radius: var(--radius); background: #fff; border: 1px solid var(--line); padding: 22px; display: flex; flex-direction: column; gap: 10px; }
+.prov-head { display: flex; align-items: center; gap: 12px; }
+.prov-logo { width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; font-weight: 900; color: #fff; font-size: 18px; flex: none; }
+.prov h4 { font-size: 17.5px; }
+.prov .model { font-family: var(--mono); font-size: 12.5px; color: var(--muted); }
+.prov ul { margin: 0; padding-left: 18px; font-size: 14.5px; color: var(--ink-2); }
+.prov li { margin-bottom: 5px; }
+.prov .perm { margin-top: auto; font-size: 12.5px; font-weight: 700; padding: 6px 10px; border-radius: 8px; background: #f4f5f8; color: #475066; }
+.prov .perm.write { background: #fff1e6; color: #b45309; }
+details.more { margin-top: 26px; border: 1px solid var(--line); border-radius: var(--radius); background: #fff; }
+details.more > summary { cursor: pointer; padding: 18px 22px; font-weight: 700; list-style: none; display: flex; justify-content: space-between; align-items: center; }
+details.more > summary::-webkit-details-marker { display: none; }
+details.more > summary::after { content: "+"; font-size: 22px; color: var(--muted); transition: transform .2s; }
+details.more[open] > summary::after { transform: rotate(45deg); }
+details.more .inner { padding: 0 22px 22px; overflow-x: auto; }
+table.tbl { width: 100%; border-collapse: collapse; font-size: 14.5px; min-width: 680px; }
+.tbl th, .tbl td { text-align: left; padding: 11px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.tbl th { font-size: 13px; color: var(--muted); font-weight: 650; background: var(--paper); }
+.tbl td:first-child { font-family: var(--mono); font-size: 13px; white-space: nowrap; }
+.tbl .chip { font-size: 12px; margin: 2px 0; }
+
+/* Safety */
+.ladder { display: grid; gap: 8px; }
+.rung {
+  display: grid; grid-template-columns: 44px 1fr auto; gap: 14px; align-items: center;
+  background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px;
+  margin-left: calc(var(--i) * 22px);
+}
+.rung .k { width: 44px; height: 44px; border-radius: 10px; background: var(--paper); display: grid; place-items: center; font-family: var(--mono); font-weight: 800; color: var(--ink-2); }
+.rung:last-child .k { background: var(--human); color: #fff; }
+.rung h4 { font-size: 16px; }
+.rung p { margin: 0; font-size: 14px; color: var(--muted); }
+.rung .who { font-size: 12.5px; color: var(--muted); font-family: var(--mono); }
+.safety-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.guard-list { display: grid; gap: 10px; margin-top: 4px; }
+.guard { display: grid; grid-template-columns: 180px 1fr; gap: 12px; font-size: 14.5px; padding: 12px 14px; border-radius: 10px; background: var(--paper); }
+.guard code { background: transparent; padding: 0; font-weight: 700; color: var(--ink); }
+.forbid { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.forbid code { background: #fdecec; color: #a83232; text-decoration: line-through; text-decoration-color: rgba(168, 50, 50, .5); }
+
+/* Delegation */
+.deleg { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.deleg .card { border-top: 4px solid var(--c); }
+.deleg .card h4 { display: flex; align-items: center; gap: 8px; }
+.deleg ul { list-style: none; padding: 0; margin-top: 14px; }
+.deleg li { padding: 10px 0; border-bottom: 1px dashed var(--line); font-size: 15px; }
+.deleg li:last-child { border-bottom: 0; }
+.deleg li b { display: block; color: var(--ink); }
+.handoff { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0; margin-top: 8px; counter-reset: h; }
+.handoff div { counter-increment: h; padding: 18px 16px 18px 0; position: relative; font-size: 14.5px; color: var(--ink-2); }
+.handoff div::before {
+  content: counter(h); display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%;
+  background: var(--night); color: var(--gold); font-weight: 800; font-size: 14px; margin-bottom: 10px; position: relative; z-index: 1;
+}
+.handoff div::after { content: ""; position: absolute; top: 33px; left: 30px; right: 0; height: 2px; background: var(--line); }
+.handoff div:last-child::after { display: none; }
+.handoff b { display: block; color: var(--ink); margin-bottom: 4px; }
+pre.term {
+  background: var(--night); color: #d6dae3; border-radius: 12px; padding: 18px 20px; overflow-x: auto;
+  font-family: var(--mono); font-size: 13.5px; line-height: 1.65; margin: 0;
+}
+pre.term .c { color: #7d8597; }
+pre.term .g { color: var(--gold); }
+pre.term .v { color: #b69bfa; }
+
+/* Journey */
+.timeline { position: relative; display: grid; gap: 0; padding-left: 30px; }
+.timeline::before { content: ""; position: absolute; left: 8px; top: 8px; bottom: 8px; width: 2px; background: linear-gradient(var(--gold), var(--line)); }
+.tl { position: relative; padding: 0 0 26px 18px; display: grid; grid-template-columns: 110px 1fr; gap: 18px; }
+.tl::before { content: ""; position: absolute; left: -29px; top: 6px; width: 16px; height: 16px; border-radius: 50%; background: #fff; border: 3px solid var(--gold); }
+.tl.now::before { background: var(--gold); box-shadow: 0 0 0 6px rgba(224, 165, 38, .25); }
+.tl .d { font-family: var(--mono); font-size: 13.5px; color: var(--muted); padding-top: 2px; }
+.tl h4 { font-size: 17px; margin-bottom: 4px; }
+.tl p { margin: 0; color: var(--ink-2); font-size: 15px; }
+.slices { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.slice { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; display: flex; flex-direction: column; gap: 8px; }
+.slice .st { font-size: 12px; font-weight: 800; color: var(--green); display: flex; align-items: center; gap: 6px; }
+.slice .st::before { content: "✓"; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: #dcf3e7; }
+.slice h4 { font-size: 17px; }
+.slice p { margin: 0; font-size: 14.5px; color: var(--ink-2); flex: 1; }
+.slice .meta { font-family: var(--mono); font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 10px; display: flex; justify-content: space-between; gap: 8px; }
+
+/* Numbers */
+.bars { display: grid; gap: 12px; }
+.bar { display: grid; grid-template-columns: 190px 1fr 46px; gap: 14px; align-items: center; font-size: 14.5px; }
+.bar .track { height: 14px; background: rgba(255, 255, 255, .08); border-radius: 999px; overflow: hidden; }
+.bar .fill { height: 100%; width: calc(var(--v) / 40 * 100%); background: var(--c); border-radius: 999px; transform-origin: left; }
+.bar .val { font-family: var(--mono); text-align: right; color: rgba(255, 255, 255, .85); }
+.bar .lbl small { display: block; color: rgba(255, 255, 255, .5); font-size: 12px; }
+.num-grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 24px; }
+.panel { background: rgba(255, 255, 255, .04); border: 1px solid rgba(255, 255, 255, .1); border-radius: var(--radius); padding: 26px; }
+.panel h4 { font-size: 17px; margin-bottom: 18px; }
+.kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.kpi { background: rgba(255, 255, 255, .05); border-radius: 12px; padding: 16px; }
+.kpi b { display: block; font-size: 26px; font-weight: 800; color: var(--gold); }
+.kpi span { font-size: 13px; color: rgba(255, 255, 255, .65); }
+.honest { margin-top: 16px; font-size: 14px; color: rgba(255, 255, 255, .65); border-left: 3px solid var(--gold); padding-left: 12px; }
+
+/* Lessons */
+.lessons { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+.lesson { background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: 22px 24px; }
+.lesson .q { font-size: 13px; font-weight: 700; color: var(--muted); }
+.lesson h4 { font-size: 18px; margin: 6px 0 8px; }
+.lesson p { font-size: 15px; color: var(--ink-2); margin: 0; }
+.mini-tbl { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13.5px; }
+.mini-tbl td { padding: 7px 8px; border-top: 1px solid var(--line); vertical-align: top; }
+.mini-tbl td:last-child { font-weight: 650; white-space: nowrap; }
+.ok { color: var(--green); } .bad { color: var(--red); }
+
+/* Next */
+.next { display: grid; grid-template-columns: 1.2fr 1fr; gap: 20px; align-items: start; }
+.now-card { background: var(--night); color: #fff; border-radius: 18px; padding: 30px; position: relative; overflow: hidden; }
+.now-card::after { content: ""; position: absolute; right: -60px; top: -60px; width: 220px; height: 220px; border-radius: 50%; background: radial-gradient(rgba(224, 165, 38, .35), transparent 70%); }
+.now-card .live { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: var(--gold); }
+.now-card .live::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--gold); animation: pulse 1.6s infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+.now-card h3 { font-size: 24px; margin: 12px 0 10px; }
+.now-card p { color: rgba(255, 255, 255, .74); font-size: 15.5px; }
+.now-card dl { display: grid; grid-template-columns: 120px 1fr; gap: 8px 14px; margin: 18px 0 0; font-size: 14.5px; }
+.now-card dt { color: rgba(255, 255, 255, .5); }
+.now-card dd { margin: 0; }
+.road { display: grid; gap: 12px; }
+.road .card { display: grid; grid-template-columns: 34px 1fr; gap: 12px; padding: 18px 20px; }
+.road .card .icon { margin: 0; font-size: 22px; }
+
+/* Glossary */
+.gloss { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.gloss details { background: #fff; border: 1px solid var(--line); border-radius: 12px; }
+.gloss summary { cursor: pointer; padding: 14px 18px; font-weight: 700; list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.gloss summary::-webkit-details-marker { display: none; }
+.gloss summary small { font-weight: 500; color: var(--muted); font-size: 13px; }
+.gloss details p { padding: 0 18px 16px; margin: 0; font-size: 15px; color: var(--ink-2); }
+
+footer { background: var(--night); color: rgba(255, 255, 255, .6); padding: 48px 0 60px; font-size: 14px; }
+footer h4 { color: #fff; font-size: 15px; margin-bottom: 12px; }
+footer ul { list-style: none; padding: 0; margin: 0; columns: 2; gap: 30px; }
+footer li { margin-bottom: 6px; font-family: var(--mono); font-size: 12.5px; break-inside: avoid; }
+.foot-grid { display: grid; grid-template-columns: 1fr 1.6fr; gap: 40px; }
+
+/* Presentation mode */
+.slide-hud {
+  position: fixed; right: 18px; bottom: 18px; z-index: 60; display: none; align-items: center; gap: 8px;
+  background: rgba(12, 16, 24, .9); color: #fff; padding: 8px 10px 8px 14px; border-radius: 999px; font-size: 13px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .25);
+}
+.slide-hud button { font: inherit; border: 0; background: rgba(255, 255, 255, .12); color: #fff; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; }
+.slide-hud button:hover { background: var(--gold); color: var(--night); }
+html.present { scroll-snap-type: y proximity; }
+html.present .slide { scroll-snap-align: start; min-height: calc(100svh - 60px); display: flex; flex-direction: column; justify-content: center; }
+html.present .slide-hud { display: flex; }
+html.present body { font-size: 17.5px; }
+
+/* Reveal on scroll (progressive enhancement) */
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    .reveal {
+      animation: reveal linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 40%;
+    }
+    .bar .fill { animation: grow linear both; animation-timeline: view(); animation-range: entry 10% cover 40%; }
+  }
+}
+@keyframes reveal { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
+@keyframes grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+/* Responsive */
+@media (max-width: 1020px) {
+  .hero-grid, .tldr, .num-grid, .next, .foot-grid { grid-template-columns: 1fr; }
+  .hero-svg { justify-self: center; }
+  .tldr-side { border-right: 0; border-bottom: 1px solid #f0dfb3; }
+  .stats { grid-template-columns: repeat(3, 1fr); }
+  .team, .g4, .slices { grid-template-columns: repeat(2, 1fr); }
+  .goals { grid-template-columns: repeat(2, 1fr); }
+  .g3, .safety-grid, .arch-note, .loop-note { grid-template-columns: 1fr; }
+  .handoff { grid-template-columns: 1fr; }
+  .handoff div::after { display: none; }
+}
+@media (max-width: 680px) {
+  section.block { padding: 68px 0; }
+  .stats { grid-template-columns: repeat(2, 1fr); }
+  .team, .g2, .g4, .slices, .problem, .principles, .deleg, .lessons, .gloss, .goals { grid-template-columns: 1fr; }
+  .layer { grid-template-columns: 1fr; gap: 8px; }
+  .layer + .layer::before { left: 24px; }
+  .tl { grid-template-columns: 1fr; gap: 4px; }
+  .bar { grid-template-columns: 120px 1fr 36px; }
+  .rung { margin-left: 0; grid-template-columns: 40px 1fr; }
+  .rung .who { display: none; }
+  .guard { grid-template-columns: 1fr; gap: 2px; }
+  .present-btn { display: none; }
+  footer ul { columns: 1; }
+}
+
+/* Print / PDF handout */
+@media print {
+  .nav, .slide-hud, .hero-cta, .size-toggle { display: none !important; }
+  body { background: #fff; font-size: 12pt; }
+  .hero, section.block.dark, .now-card, .goal, footer { background: #fff !important; color: #000 !important; }
+  .hero *, .dark *, .now-card *, .goal * { color: #000 !important; }
+  section.block { padding: 28px 0; break-inside: auto; }
+  .card, .step, .slice, .lesson, .layer, .prov { break-inside: avoid; box-shadow: none; }
+  details { display: block; }
+  details > :not(summary) { display: block !important; }
+  .reveal { animation: none !important; opacity: 1 !important; transform: none !important; }
+}
+</style>
+</head>
+<body>
+
+<!-- ===================== NAV ===================== -->
+<header class="nav">
+  <div class="wrap">
+    <a class="brand" href="#top"><span class="brand-mark">H</span> Hermes Pipeline</a>
+    <nav class="nav-links" aria-label="섹션 목차">
+      <a href="#overview">한눈에 보기</a>
+      <a href="#why">왜 만들었나</a>
+      <a href="#architecture">구조</a>
+      <a href="#flow">작업 흐름</a>
+      <a href="#roles">AI 역할</a>
+      <a href="#safety">안전장치</a>
+      <a href="#delegation">위임 운영</a>
+      <a href="#journey">진행 현황</a>
+      <a href="#numbers">숫자</a>
+      <a href="#lessons">배운 점</a>
+      <a href="#next">다음 단계</a>
+      <a href="#glossary">용어</a>
+    </nav>
+    <button class="present-btn" id="presentBtn" type="button" aria-pressed="false" title="섹션 단위로 넘기며 발표합니다 (← → 키)">▶ 발표 모드</button>
+  </div>
+</header>
+
+<!-- ===================== HERO ===================== -->
+<section class="hero slide" id="top">
+  <div class="wrap">
+    <div class="hero-grid">
+      <div>
+        <span class="eyebrow-pill"><span class="dot"></span>2026-10-20 기준 · 실전형 리허설 진행 중</span>
+        <h1>AI 여러 명이 <em>한 팀처럼</em> 개발하고,<br>사람은 <em>결정</em>만 한다.</h1>
+        <p class="lead">Hermes를 지휘자(오케스트레이터)로 두고 Claude · Codex · Gemini · DeepSeek가 기획부터 테스트, 구현, 리뷰, 판정까지 역할을 나눠 맡는 멀티 에이전트 AI 개발 파이프라인입니다. 모든 단계는 증거를 남기고, 병합은 사람만 합니다.</p>
+        <div class="hero-cta">
+          <a class="btn btn-gold" href="#overview">1분 요약 보기 →</a>
+          <a class="btn btn-ghost" href="#flow">작업 흐름 살펴보기</a>
+        </div>
+      </div>
+
+      <svg class="hero-svg" viewBox="0 0 520 470" role="img" aria-label="사용자, 위임 구동자, Hermes, 그리고 네 AI 작업자 사이의 지시와 결과 흐름 다이어그램">
+        <defs>
+          <radialGradient id="hg" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#e0a526" stop-opacity=".55"/>
+            <stop offset="100%" stop-color="#e0a526" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+        <!-- links -->
+        <g stroke="rgba(255,255,255,.18)" stroke-width="1.5" fill="none">
+          <path id="p-u" d="M260 58 L260 112"/>
+          <path id="p-d" d="M260 150 L260 206"/>
+          <path id="p-c" d="M232 262 Q150 290 92 340"/>
+          <path id="p-s" d="M248 272 Q220 330 198 380"/>
+          <path id="p-g" d="M272 272 Q300 330 322 380"/>
+          <path id="p-o" d="M288 262 Q370 290 428 340"/>
+        </g>
+        <!-- moving messages -->
+        <g>
+          <circle r="4" fill="#b69bfa"><animateMotion dur="3.2s" repeatCount="indefinite"><mpath href="#p-u"/></animateMotion></circle>
+          <circle r="4" fill="#e0a526"><animateMotion dur="2.6s" begin=".4s" repeatCount="indefinite"><mpath href="#p-d"/></animateMotion></circle>
+          <circle r="4" fill="#d97757"><animateMotion dur="3s" begin=".2s" repeatCount="indefinite"><mpath href="#p-c"/></animateMotion></circle>
+          <circle r="4" fill="#5b5ff5"><animateMotion dur="3.4s" begin="1s" repeatCount="indefinite"><mpath href="#p-s"/></animateMotion></circle>
+          <circle r="4" fill="#3b7cf0"><animateMotion dur="2.8s" begin=".6s" repeatCount="indefinite"><mpath href="#p-g"/></animateMotion></circle>
+          <circle r="4" fill="#10a37f"><animateMotion dur="3.6s" begin="1.4s" repeatCount="indefinite"><mpath href="#p-o"/></animateMotion></circle>
+        </g>
+        <!-- user -->
+        <g transform="translate(260 38)">
+          <rect x="-62" y="-22" width="124" height="44" rx="22" fill="#2a1f47" stroke="#8b5cf6"/>
+          <text y="5" text-anchor="middle" fill="#fff" font-size="15" font-weight="700">👤 사용자</text>
+        </g>
+        <!-- driver -->
+        <g transform="translate(260 131)">
+          <rect x="-112" y="-20" width="224" height="40" rx="10" fill="#141a26" stroke="rgba(255,255,255,.25)"/>
+          <text y="-1" text-anchor="middle" fill="#fff" font-size="13.5" font-weight="700">위임 구동자</text>
+          <text y="14" text-anchor="middle" fill="rgba(255,255,255,.55)" font-size="11">Claude Code ⇄ Codex</text>
+        </g>
+        <!-- hermes -->
+        <circle cx="260" cy="240" r="80" fill="url(#hg)"/>
+        <circle cx="260" cy="240" r="40" fill="#1b1606" stroke="#e0a526" stroke-width="2"/>
+        <text x="260" y="238" text-anchor="middle" fill="#e0a526" font-size="16" font-weight="800">Hermes</text>
+        <text x="260" y="255" text-anchor="middle" fill="rgba(255,255,255,.6)" font-size="10.5">지휘 · 검사 · 증거</text>
+        <!-- workers -->
+        <g transform="translate(80 360)">
+          <circle r="30" fill="#2a1912" stroke="#d97757" stroke-width="2"/>
+          <text y="5" text-anchor="middle" fill="#fff" font-size="12.5" font-weight="700">Claude</text>
+          <text y="50" text-anchor="middle" fill="rgba(255,255,255,.6)" font-size="11">기획 · 판정</text>
+        </g>
+        <g transform="translate(196 400)">
+          <circle r="28" fill="#17183a" stroke="#5b5ff5" stroke-width="2"/>
+          <text y="4" text-anchor="middle" fill="#fff" font-size="10" font-weight="700">DeepSeek</text>
+          <text y="44" text-anchor="middle" fill="rgba(255,255,255,.6)" font-size="11">테스트</text>
+        </g>
+        <g transform="translate(324 400)">
+          <circle r="28" fill="#111d36" stroke="#3b7cf0" stroke-width="2"/>
+          <text y="5" text-anchor="middle" fill="#fff" font-size="12" font-weight="700">Gemini</text>
+          <text y="44" text-anchor="middle" fill="rgba(255,255,255,.6)" font-size="11">테스트 · 보안</text>
+        </g>
+        <g transform="translate(440 360)">
+          <circle r="30" fill="#0d2a22" stroke="#10a37f" stroke-width="2"/>
+          <text y="5" text-anchor="middle" fill="#fff" font-size="12.5" font-weight="700">Codex</text>
+          <text y="50" text-anchor="middle" fill="rgba(255,255,255,.6)" font-size="11">구현</text>
+        </g>
+      </svg>
+    </div>
+
+    <div class="stats" role="list">
+      <div class="stat" role="listitem"><b>4 / 4</b><span>파이프라인 조각 수용 · main 병합</span></div>
+      <div class="stat" role="listitem"><b>639</b><span>자동 테스트 통과 (Node 586 + Python 53)</span></div>
+      <div class="stat" role="listitem"><b>4개사</b><span>Anthropic · OpenAI · Google · DeepSeek</span></div>
+      <div class="stat" role="listitem"><b>D-97</b><span>근거와 함께 기록된 운영 결정</span></div>
+      <div class="stat" role="listitem"><b>0회</b><span>AI의 main 직접 커밋 · 자동 병합</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 00 OVERVIEW ===================== -->
+<section class="block slide" id="overview">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div class="sec-num">00 — 한눈에 보기</div>
+      <h2>한 줄로 말하면, "AI로 꾸린 개발팀"입니다</h2>
+      <p>AI 하나에게 모든 일을 맡기면 자기가 쓴 코드를 자기가 검토하게 됩니다. 이 프로젝트는 회사가 사람으로 팀을 꾸리듯, 서로 다른 회사의 AI에게 역할을 나눠 주고 서로를 견제하게 만듭니다.</p>
+    </div>
+
+    <div class="tldr reveal">
+      <div class="tldr-side">
+        <h3>1분 요약</h3>
+        <p>발표를 시작할 때 이 다섯 줄만 말해도 전체 그림이 전달됩니다.</p>
+      </div>
+      <ol>
+        <li><b>지휘자 Hermes</b>가 작업을 크기(S/M/L)로 나누고 단계마다 알맞은 AI를 호출합니다.</li>
+        <li><b>만든 AI와 검토하는 AI는 다른 회사</b>로 둡니다. 테스트 작성자와 구현자도 분리합니다.</li>
+        <li>AI가 쓴 코드는 <b>격리된 브랜치(worktree)</b>에만 쌓이고, 운영 코드(main)에는 손대지 못합니다.</li>
+        <li>모든 호출·판정·비용은 <b>원장과 해시로 기록</b>되어, 중단돼도 이어서 하고 나중에 검증할 수 있습니다.</li>
+        <li>사람은 매 단계를 지켜보지 않고 <b>요구사항·예산·수용·병합 같은 진짜 결정만</b> 내립니다.</li>
+      </ol>
+    </div>
+
+    <h3 class="sub reveal">비유로 보는 팀 구성</h3>
+    <div class="team">
+      <div class="member reveal" style="--c:var(--human);--cs:var(--human-soft)">
+        <div class="role">대표 · 최종 결정권자</div>
+        <h4>사용자</h4>
+        <p>요구사항을 정하고 예산을 승인하며, 결과물을 직접 테스트한 뒤 병합합니다.</p>
+        <span class="who">사람</span>
+      </div>
+      <div class="member reveal" style="--c:#475066;--cs:#eceef3">
+        <div class="role">운영 매니저</div>
+        <h4>위임 구동자</h4>
+        <p>Hermes에 지시를 보내고 보고서를 읽어 다음 할 일을 정합니다. 사람에게는 결정이 필요할 때만 묻습니다.</p>
+        <span class="who">Claude Code ⇄ Codex</span>
+      </div>
+      <div class="member reveal" style="--c:var(--gold);--cs:var(--gold-soft)">
+        <div class="role">팀장 · 품질 관리자</div>
+        <h4>Hermes</h4>
+        <p>단계 순서를 지키고, 호출 예산을 세고, 결과를 검사하고, 증거를 보존합니다. 규칙 밖의 지시는 거부합니다.</p>
+        <span class="who">오케스트레이터</span>
+      </div>
+      <div class="member reveal" style="--c:var(--claude);--cs:var(--claude-soft)">
+        <div class="role">기획자 · 심사관</div>
+        <h4>Claude</h4>
+        <p>계획·설계·명세를 쓰고, 리뷰 지적을 판정하며, 최종 합격 여부를 가립니다. 파일은 읽기만 합니다.</p>
+        <span class="who">Opus 5.5 · Sonnet 5.5</span>
+      </div>
+      <div class="member reveal" style="--c:var(--openai);--cs:var(--openai-soft)">
+        <div class="role">개발자</div>
+        <h4>Codex</h4>
+        <p>테스트를 통과하는 제품 코드를 작성하는 <b>유일한</b> AI입니다. 테스트 파일은 고칠 수 없습니다.</p>
+        <span class="who">GPT-6.1-sol</span>
+      </div>
+      <div class="member reveal" style="--c:var(--google);--cs:var(--google-soft)">
+        <div class="role">테스터 · 보안 점검</div>
+        <h4>Gemini (Antigravity)</h4>
+        <p>구현 전에 실패하는 테스트를 먼저 쓰고, 보안·엣지케이스를 리뷰합니다. 빠른 보조 리뷰도 맡습니다.</p>
+        <span class="who">Gemini 3.8 Flash</span>
+      </div>
+      <div class="member reveal" style="--c:var(--deepseek);--cs:var(--deepseek-soft)">
+        <div class="role">테스트 전문 인력</div>
+        <h4>DeepSeek</h4>
+        <p>상태·계약이 복잡한 테스트를 저렴한 종량 요금으로 작성합니다. 실행 결과로 품질을 기계적으로 검증합니다.</p>
+        <span class="who">V4.1 Flash</span>
+      </div>
+      <div class="member reveal" style="--c:#475066;--cs:#eceef3">
+        <div class="role">자동화 도구</div>
+        <h4>파이프라인 스크립트</h4>
+        <p>빌드·테스트 실행, 파일 변경 감시, 비용 집계처럼 판단이 필요 없는 일은 AI 대신 스크립트가 합니다.</p>
+        <span class="who">agent-run · guard · checks</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 01 WHY ===================== -->
+<section class="block alt slide" id="why">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div class="sec-num">01 — 왜 만들었나</div>
+      <h2>AI 코딩 도구는 강력하지만, 혼자 두면 불안합니다</h2>
+      <p>회사 IT 관리자로서 실제 업무 시스템(PC 자산관리)을 AI로 개발하려고 했을 때, 다음 문제들이 먼저 보였습니다.</p>
+    </div>
+
+    <div class="problem">
+      <div class="card reveal"><span class="icon">🪞</span><div><h4>자기 코드를 자기가 검토한다</h4><p>같은 AI가 만들고 검토하면 같은 맹점을 공유합니다. 테스트까지 같은 AI가 쓰면 "통과하도록 만든 테스트"가 됩니다.</p></div></div>
+      <div class="card reveal"><span class="icon">⏳</span><div><h4>구독 한도에 걸리면 멈춘다</h4><p>한 회사 AI에 몰아 쓰면 사용 한도에 걸릴 때마다 몇 시간씩 작업이 멈춥니다. 실제로 한 조각 동안 Claude 한도에 다섯 번 걸렸습니다.</p></div></div>
+      <div class="card reveal"><span class="icon">🔍</span><div><h4>"완료했다"는 말을 믿을 수 없다</h4><p>AI는 끝났다고 말하지만 응답이 잘렸거나, 형식이 틀렸거나, 테스트가 엉뚱한 이유로 통과했을 수 있습니다. 증거가 필요합니다.</p></div></div>
+      <div class="card reveal"><span class="icon">🌀</span><div><h4>AI 환경이 매달 바뀐다</h4><p>새 모델·가격·도구가 계속 나옵니다. 특정 모델에 묶인 구조는 금방 낡습니다. 측정해서 갈아 끼울 수 있어야 합니다.</p></div></div>
+    </div>
+
+    <h3 class="sub reveal">그래서 세운 다섯 가지 목표</h3>
+    <div class="goals">
+      <div class="goal reveal"><div class="n">GOAL 1</div><h4>최적 비용</h4><p>같은 품질을 더 적은 비용으로. 실패·재시도·리뷰 비용까지 포함한 "완료 작업당 비용"으로 봅니다.</p></div>
+      <div class="goal reveal"><div class="n">GOAL 2</div><h4>최고 품질</h4><p>테스트 통과와 AI 판정만이 아니라 사람의 평가, 수용 후 발견된 결함까지 확인합니다.</p></div>
+      <div class="goal reveal"><div class="n">GOAL 3</div><h4>자동화 개발</h4><p>요구사항 접수부터 계획·테스트·구현·리뷰·보고, 중단 후 복구까지 자동으로 진행합니다.</p></div>
+      <div class="goal reveal"><div class="n">GOAL 4</div><h4>여러 공급사 활용</h4><p>회사별 강점, 교차 검토, 사용 한도 분산을 함께 얻습니다. 현재 4개 공급사를 씁니다.</p></div>
+      <div class="goal reveal"><div class="n">GOAL 5</div><h4>지속 반영</h4><p>새 모델·도구를 같은 평가 묶음으로 측정해, 개선이 확인될 때만 반영합니다.</p></div>
+    </div>
+    <div class="callout reveal"><b>최적 비용 ≠ 최저 비용.</b> 품질을 낮춰서 아낀 비용은 성과로 치지 않습니다. 또한 관측되지 않은 비용은 0으로 계산하지 않고 "unknown"으로 남깁니다.</div>
+
+    <h3 class="sub reveal">설계 원칙</h3>
+    <div class="principles">
+      <div class="principle reveal"><div><h4>만든 AI와 검토하는 AI를 다르게</h4><p>가능하면 회사도 다르게 둡니다. 대체 모델을 쓸 때도 지키고, 독립성이 줄어들면 보고서에 공개합니다.</p></div></div>
+      <div class="principle reveal"><div><h4>단계 사이는 파일로만 넘긴다</h4><p>TASK.md → DESIGN.md → SPEC.md → 테스트 → diff. 추적할 수 있고, 중단돼도 이어서 할 수 있습니다.</p></div></div>
+      <div class="principle reveal"><div><h4>테스트 작성자와 구현자를 분리</h4><p>테스트는 구현 전에 먼저, 다른 AI가 씁니다. 구현자는 테스트를 고칠 수 없습니다.</p></div></div>
+      <div class="principle reveal"><div><h4>두뇌는 판단만, 기계적인 일은 스크립트가</h4><p>AI 호출이 가장 비쌉니다. 실행·검사·집계·파일 기록은 스크립트가 맡습니다.</p></div></div>
+      <div class="principle reveal"><div><h4>제품 코드를 쓰는 AI는 하나뿐</h4><p>Codex만 worktree에 쓸 수 있습니다. 나머지는 읽기 전용이며, 테스트도 스크립트가 tests/ 안에만 기록합니다.</p></div></div>
+      <div class="principle reveal"><div><h4>자동 대체(fallback) 금지</h4><p>미리 승인된 표에 없는 모델 교체는 사람이 결정합니다. 한도에 걸리면 기다렸다가 재개합니다.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 02 ARCHITECTURE ===================== -->
+<section class="block dark slide" id="architecture">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div class="sec-num">02 — 전체 구조</div>
+      <h2>지시는 위에서 아래로, 증거는 아래에서 위로</h2>
+      <p>사람과 AI 작업자 사이에 두 겹의 관리층(위임 구동자, Hermes)을 둡니다. 각 층은 자기 권한만 갖고, 넘을 수 없는 경계는 규칙 문서와 해시로 고정합니다.</p>
+    </div>
+
+    <div class="arch">
+      <div class="layer l-user reveal">
+        <div class="lname">사용자<small>Human-in-the-loop</small></div>
+        <div class="ldesc">요구사항·수용 기준 결정, 예산 봉투 승인, 조각 수용 검토, 병합과 배포. 위임 규칙 밖의 사안은 반드시 <b>본인 메시지</b>로만 결정합니다.
+          <div class="chips"><span class="chip human">결정 · 승인 · 병합</span></div></div>
+      </div>
+      <div class="layer reveal">
+        <div class="lname">위임 구동자<small>Delegated Driver</small></div>
+        <div class="ldesc"><code>hermes chat -Q -s dev-pipeline --query-file &lt;지시&gt;</code>로 Hermes를 비대화형으로 실행하고, 끝나면 보고서·원장·증거를 직접 읽어 다음 지시를 정합니다. 사용량에 따라 둘 중 하나가 맡고 파일로 인수인계합니다.
+          <div class="chips"><span class="chip claude">Claude Code · Opus 5.5</span><span class="chip openai">Codex · GPT-6.1-sol</span></div></div>
+      </div>
+      <div class="layer l-hermes reveal">
+        <div class="lname">Hermes<small>Orchestrator</small></div>
+        <div class="ldesc">dev-pipeline 스킬로 단계 순서·크기 분기·수정 루프·중단 조건을 지킵니다. 결정·규칙·명세의 SHA-256을 <b>등록부</b>에 올리고, 호출 예산을 <b>원장</b>에 기록하며, 보호 파일이 바뀌지 않았는지 대조한 뒤에만 작업자를 부릅니다.
+          <div class="chips"><span class="chip hermes">지휘 · 등록 · 검사 · 증거</span><span class="chip script">지휘 모델: Opus 5.5 / GPT-6.1 Sol (사용자 선택)</span></div></div>
+      </div>
+      <div class="layer reveal">
+        <div class="lname">파이프라인 도구<small>pipeline/ (Node.js)</small></div>
+        <div class="ldesc"><code>agent-run</code>(역할별 CLI·모델 실행, 종료 상태 판별) · <code>guard</code>(파일 변경 감시) · <code>checks</code>(test·lint·build 실행) · <code>materialize-tests</code> · <code>verdict</code> · <code>task-cost</code>. 모델 배정은 <code>roles.json</code> 한 곳에서만 바꿉니다.
+          <div class="chips"><span class="chip script">판단 없는 일은 전부 스크립트</span></div></div>
+      </div>
+      <div class="layer reveal">
+        <div class="lname">AI 작업자<small>Multi-Provider Workers</small></div>
+        <div class="ldesc">각자 CLI로 호출되며 표준 입력을 막고 출력은 원본 그대로 저장합니다. 요약·재작성 금지.
+          <div class="chips"><span class="chip claude">Claude CLI</span><span class="chip openai">Codex CLI</span><span class="chip google">Antigravity CLI (Gemini)</span><span class="chip deepseek">DeepSeek API</span></div></div>
+      </div>
+      <div class="layer l-ws reveal">
+        <div class="lname">격리 작업 공간<small>git worktree</small></div>
+        <div class="ldesc"><code>agent/&lt;run-id&gt;</code> 브랜치에서만 코드가 바뀝니다. 실행 기록은 원본 저장소의 <code>.agent-pipeline/runs/&lt;run-id&gt;/</code>에 따로 남아 worktree를 지워도 보존됩니다. 사람이 이 브랜치를 직접 실행·테스트한 뒤 병합합니다.
+          <div class="chips"><span class="chip human">사람만 main에 병합</span></div></div>
+      </div>
+    </div>
+
+    <div class="arch-note">
+      <div class="reveal"><b>운영 환경</b>Mac mini 한 대. Windows 노트북에서 Tailscale SSH + VS Code Remote로 접속하고, Herdr로 터미널 세션을 유지합니다.</div>
+      <div class="reveal"><b>시작 요금 조건</b>Claude Pro · ChatGPT Plus · Google AI Pro 각 $20 구독으로 시작하고, DeepSeek은 종량 API로 붙였습니다.</div>
+      <div class="reveal"><b>일일 안전 상한</b>관측 비용 하루 $40, 비용이 관측되지 않는 호출은 하루 30회. 넘으면 다음 날 재개하거나 사람이 결정합니다.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 03 FLOW ===================== -->
+<section class="block slide" id="flow">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div class="sec-num">03 — 작업 흐름</div>
+      <h2>요청 하나가 커밋이 되기까지, 최대 15단계</h2>
+      <p>Hermes는 요청을 받으면 먼저 크기를 분류합니다. 작은 작업은 단계를 건너뛰고, 큰 작업은 설계와 사람 승인까지 거칩니다. 아래 버튼으로 크기별 경로를 비교해 보세요.</p>
+    </div>
+
+    <div class="size-toggle" role="group" aria-label="작업 크기 선택">
+      <button type="button" data-size="L" aria-pressed="true">L · 큰 작업</button>
+      <button type="button" data-size="M" aria-pressed="false">M · 중간</button>
+      <button type="button" data-size="S" aria-pressed="false">S · 작은 작업</button>
+    </div>
+    <p class="size-desc" id="sizeDesc" aria-live="polite"></p>
+
+    <div class="flow" id="flowGrid"></div>
+
+    <div class="flow-legend">
+      <span style="color:var(--claude)">Anthropic</span>
+      <span style="color:var(--openai)">OpenAI</span>
+      <span style="color:var(--google)">Google</span>
+      <span style="color:var(--human)">사람</span>
+      <span style="color:#8a90a0">스크립트 / Hermes</span>
+    </div>
+
+    <div class="loop-note">
+      <div class="card reveal"><h4>✅ 테스트는 "올바른 이유로" 실패해야</h4><p>5단계 직후 테스트를 실행해 <b>구현이 없어서</b> 실패하는지 확인합니다. 문법 오류·설정 오류·테스트 0개로 인한 실패는 유효한 RED가 아닙니다.</p></div>
+      <div class="card reveal"><h4>🔁 수정 루프는 최대 2회</h4><p>판정에서 BLOCKER·HIGH만 고칩니다. 2회 뒤에도 남으면 멈추고 보고합니다. 같은 단계 연속 4회 실패도 사람에게 올립니다.</p></div>
+      <div class="card reveal"><h4>⏸ 중단돼도 이어서</h4><p><code>state.json</code>에 현재 단계·시도 횟수·실제 사용 모델을 기록합니다. 세션이 끊겨도 마지막으로 끝낸 단계 다음부터 재개합니다.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 04 ROLES ===================== -->
+<section class="block alt slide" id="roles">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div class="sec-num">04 — AI 역할 배치</div>
+      <h2>회사마다 잘하는 일을 맡기고, 서로를 검증하게</h2>
+      <p>"테스트는 Google·DeepSeek, 구현은 OpenAI, 리뷰·판정은 Anthropic." 세 회사 이상이 서로의 결과를 확인하는 구조입니다. 실제 배치는 측정 결과에 따라 계속 조정됩니다.</p>
+    </div>
+
+    <div class="grid g4">
+      <div class="prov reveal" style="border-top:4px solid var(--claude)">
+        <div class="prov-head"><div class="prov-logo" style="background:var(--claude)">A</div><div><h4>Claude</h4><div class="model">opus-5-5 · sonnet-5-5</div></div></div>
+        <ul>
+          <li>계획 · 설계 · 명세(SPEC) 작성</li>
+          <li>큰 작업의 구현 리뷰</li>
+          <li>리뷰 지적 판정 (근거 없는 지적 기각)</li>
+          <li>최종 수용 판정 — 수용 기준을 하나씩 증거로 확인</li>
+        </ul>
+        <div class="perm">🔒 읽기 전용 (Read · Grep · Glob)</div>
+      </div>
+      <div class="prov reveal" style="border-top:4px solid var(--openai)">
+        <div class="prov-head"><div class="prov-logo" style="background:var(--openai)">O</div><div><h4>Codex</h4><div class="model">gpt-6.1-sol · medium</div></div></div>
+        <ul>
+          <li>제품 코드 구현 · 수정 (유일한 작성자)</li>
+          <li>명세 독립 리뷰</li>
+          <li>한도 상황에서 구현·독립 리뷰 대행 (독립성 축소를 공개)</li>
+        </ul>
+        <div class="perm write">✏️ worktree 쓰기 가능 · tests/ 제외</div>
+      </div>
+      <div class="prov reveal" style="border-top:4px solid var(--google)">
+        <div class="prov-head"><div class="prov-logo" style="background:var(--google)">G</div><div><h4>Gemini (agy)</h4><div class="model">gemini-3.8-flash-high</div></div></div>
+        <ul>
+          <li>테스트 작성 (기본 후보)</li>
+          <li>보안 · 엣지케이스 리뷰</li>
+          <li><b>신규</b> 소규모 구현 보조 리뷰 · 명세 보조 검토 (<code>--json-schema</code>로 형식 강제)</li>
+          <li>기획·판정의 대체 후보</li>
+        </ul>
+        <div class="perm">🔒 plan 모드 · 코드 실행 권한 없음</div>
+      </div>
+      <div class="prov reveal" style="border-top:4px solid var(--deepseek)">
+        <div class="prov-head"><div class="prov-logo" style="background:var(--deepseek)">D</div><div><h4>DeepSeek</h4><div class="model">V4.1 Flash · 종량 API</div></div></div>
+        <ul>
+          <li>상태·계약이 복잡한 테스트 작성 · 교정</li>
+          <li>조각 4에서 가장 많이 쓴 작성자 (40회)</li>
+          <li>roles.json 정식 통합은 진행 중</li>
+        </ul>
+        <div class="perm">🔒 응답만 받음 · 자격증명 전송 금지</div>
+      </div>
+    </div>
+
+    <details class="more reveal">
+      <summary>현재 roles.json 역할표 전체 보기 (17개 역할, 1순위 → 대체 순서)</summary>
+      <div class="inner">
+        <table class="tbl">
+          <thead><tr><th>역할</th><th>1순위</th><th>대체 후보</th><th>설명</th></tr></thead>
+          <tbody>
+            <tr><td>plan-L / design / spec-L</td><td><span class="chip claude">Opus 5.5 · medium</span></td><td><span class="chip google">Gemini 3.8 Flash</span> <span class="chip claude">Sonnet 5.5</span></td><td>큰 작업의 계획·설계·명세</td></tr>
+            <tr><td>plan-M / spec-M</td><td><span class="chip claude">Sonnet 5.5 · medium</span></td><td><span class="chip google">Gemini 3.8 Flash</span></td><td>중간 작업의 계획·명세</td></tr>
+            <tr><td>spec-review-codex</td><td><span class="chip openai">GPT-6.1-sol</span></td><td><span class="chip google">Gemini 3.8 Flash</span></td><td>명세 독립 리뷰 (L)</td></tr>
+            <tr><td>spec-review-agy</td><td><span class="chip google">Gemini 3.8 Flash</span></td><td><span class="chip openai">GPT-6.1-sol</span></td><td>명세 리뷰 (L·M)</td></tr>
+            <tr><td>spec-review-assist</td><td><span class="chip google">Gemini 3.8 Flash · high</span></td><td>—</td><td>명세 2순위 보조 검토, 인용 enum + JSON 스키마 (D-94·95)</td></tr>
+            <tr><td>tests-LM / tests-S</td><td><span class="chip google">Gemini 3.8 Flash</span></td><td><span class="chip claude">Sonnet 5.5</span></td><td>구현 전 테스트 작성. 실무에선 DeepSeek 경로 병행</td></tr>
+            <tr><td>implement</td><td><span class="chip openai">GPT-6.1-sol · medium</span></td><td>— (한도 시 대기)</td><td>제품 코드 구현·수정</td></tr>
+            <tr><td>impl-review-L</td><td><span class="chip claude">Opus 5.5</span></td><td><span class="chip google">Gemini 3.8 Flash</span></td><td>큰 작업 구현 리뷰</td></tr>
+            <tr><td>impl-review-SM</td><td><span class="chip claude">Sonnet 5.5</span></td><td><span class="chip google">Gemini 3.8 Flash</span></td><td>중간·작은 작업 구현 리뷰</td></tr>
+            <tr><td>impl-review-small</td><td><span class="chip google">Gemini 3.8 Flash · high</span></td><td>—</td><td>소규모 변경 보조 리뷰 (D-94·95)</td></tr>
+            <tr><td>sec-review-LM / S</td><td><span class="chip google">Gemini 3.8 Flash</span></td><td><span class="chip claude">Sonnet 5.5</span></td><td>보안·엣지케이스 리뷰</td></tr>
+            <tr><td>judge</td><td><span class="chip claude">Opus 5.5 · high</span></td><td><span class="chip google">Gemini 3.8 Flash</span></td><td>리뷰 지적 판정, 최종 수용 판정</td></tr>
+          </tbody>
+        </table>
+        <p style="font-size:14px;color:var(--muted);margin:14px 0 0">대체 후보는 "자동 전환" 목록이 아닙니다. 위임 규칙의 사전 승인 표에 있는 경우만 구동자가 교체하고, 나머지는 사람이 결정합니다.</p>
+      </div>
+    </details>
+  </div>
+</section>
+
+<!-- ===================== 05 SAFETY ===================== -->
+<section class="block slide" id="safety">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div class="sec-num">05 — 안전장치와 검증</div>
+      <h2>"끝났다"는 말이 아니라, 증거로 판정합니다</h2>
+      <p>AI의 응답은 종료 코드가 0이어도 잘렸거나 형식이 틀렸을 수 있습니다. 그래서 결과 판정을 일곱 개의 층으로 나누고, 아래 층의 통과가 위 층을 대신하지 못하게 했습니다.</p>
+    </div>
+
+    <div class="grid g2" style="align-items:start">
+      <div class="ladder" aria-label="결과 판정의 7개 층">
+        <div class="rung reveal" style="--i:0"><div class="k">1</div><div><h4>프로세스 종료 코드 0</h4><p>CLI가 오류 없이 끝났다. 그 이상은 아무것도 보장하지 않음</p></div><div class="who">runner</div></div>
+        <div class="rung reveal" style="--i:1"><div class="k">2</div><div><h4>응답 완전성</h4><p>잘림·max_tokens·누락 없이 정상 종료</p></div><div class="who">agent-run</div></div>
+        <div class="rung reveal" style="--i:2"><div class="k">3</div><div><h4>형식 · 스키마</h4><p>Findings / Reviewed 섹션, JSON 스키마, 판정 줄 하나</p></div><div class="who">review-check</div></div>
+        <div class="rung reveal" style="--i:3"><div class="k">4</div><div><h4>내용 자체 대조</h4><p>근거 없는 "지적 없음"은 무효 처리</p></div><div class="who">Hermes</div></div>
+        <div class="rung reveal" style="--i:4"><div class="k">5</div><div><h4>실행 검증</h4><p>실제 test · lint · build 출력과 종료 코드</p></div><div class="who">checks</div></div>
+        <div class="rung reveal" style="--i:5"><div class="k">6</div><div><h4>독립 리뷰 합격</h4><p>다른 회사 AI의 리뷰 + Opus 판정</p></div><div class="who">reviewers</div></div>
+        <div class="rung reveal" style="--i:6"><div class="k">7</div><div><h4>사람의 승인 · 최종 수용</h4><p>AI의 PASS로 대체할 수 없음</p></div><div class="who">사용자</div></div>
+      </div>
+
+      <div class="grid" style="gap:16px">
+        <div class="card reveal">
+          <h4>🛡 guard — 누가 무엇을 바꿨는지 감시</h4>
+          <div class="guard-list">
+            <div class="guard"><code>baseline / unchanged</code><span>리뷰어 호출 전후 비교. 읽기 전용 AI가 파일을 바꾸면 <b>즉시 중단</b></span></div>
+            <div class="guard"><code>tests-only</code><span>테스트 작성 단계에서 tests/ 밖이 바뀌면 <b>즉시 중단</b></span></div>
+            <div class="guard"><code>no-test-change</code><span>구현자가 테스트를 고치면 <b>수정 루프로 되돌림</b></span></div>
+          </div>
+        </div>
+        <div class="card reveal">
+          <h4>⛔ 금지 옵션과 금지 동작</h4>
+          <p>권한 우회 옵션은 Hermes 차단 목록에 올라 있고, AI는 병합·push를 할 수 없습니다.</p>
+          <div class="forbid">
+            <code>--dangerously-skip-permissions</code><code>--yolo</code><code>danger-full-access</code><code>bypassPermissions</code><code>git push main</code><code>force push</code><code>gh pr merge</code>
+          </div>
+        </div>
+        <div class="card reveal">
+          <h4>🔐 해시로 고정된 기준</h4>
+          <p>위임 규칙·결정 등록부·명세·roles.json의 SHA-256을 Hermes가 등록합니다. 작업자 호출 전 <b>보호 매니페스트</b>로 대조하고, 문서가 바뀌면 사용자 본인 메시지로 재등록해야 효력이 생깁니다. 검사·판정은 구현 중 코드가 아니라 <b>기준선 checkout의 지휘 도구</b>로 합니다.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 06 DELEGATION ===================== -->
+<section class="block alt slide" id="delegation">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div class="sec-num">06 — 위임 운영</div>
+      <h2>사람의 개입을 "진짜 결정"으로 줄이는 방법</h2>
+      <p>초기에는 매 호출마다 사람이 승인해야 했습니다. 2026-10-09 위임 규칙을 만들어 기계적인 판단은 위임 구동자가 맡고, 사람은 조각 단위 검토와 실제 결정만 하도록 바꿨습니다.</p>
+    </div>
+
+    <div class="deleg">
+      <div class="card reveal" style="--c:var(--openai)">
+        <h4>🤖 구동자가 묻지 않고 처리하는 것</h4>
+        <ul>
+          <li><b>예산 봉투 안의 배분</b>조각마다 호출 상한(봉투)을 받고, 어느 단계에 몇 회 쓸지는 구동자와 Hermes가 정합니다. 실패·빈 응답도 소비로 셉니다.</li>
+          <li><b>기계적 결함</b>내용을 바꾸지 않고 엄격한 대조로 검증되는 것만. 예: 패치 줄 수 표기 오류(<code>git apply --recount</code>), 원문 바이트를 둔 채 추출만 다시 하기.</li>
+          <li><b>사전 승인된 모델 교체</b>표에 적힌 조건·대상·횟수 안에서만. 예: 테스트 작성이 출력 한도로 실패하면 지정된 대체 모델로.</li>
+          <li><b>기술적 표기 선택</b>요구사항·보안·수용 기준에 영향 없는 표기·형식. 모든 선택은 결정 기록에 남깁니다.</li>
+        </ul>
+      </div>
+      <div class="card reveal" style="--c:var(--human)">
+        <h4>👤 반드시 사람에게 올리는 것</h4>
+        <ul>
+          <li><b>예산 소진 · 일일 상한 도달</b>봉투가 바닥나거나 하루 $40 / 미관측 30회에 도달하면 멈춥니다.</li>
+          <li><b>요구사항·수용 기준 변경</b>범위 축소·확대, 명세 해석으로 수용 의미가 바뀌는 경우.</li>
+          <li><b>표에 없는 모델 교체, roles.json·설정·스킬 변경</b>구동자가 "전달"로 처리하려 했다가 Hermes가 거부한 사례가 있습니다.</li>
+          <li><b>병합 · push · 브랜치 삭제 · 기준선 변경, 다음 조각 시작</b>사용자 본인 메시지로만.</li>
+          <li><b>같은 단계 연속 4회 실패</b>무한 재시도를 막는 방어선입니다.</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3 class="sub reveal">구동자 교대 — 한도에 걸려도 멈추지 않게</h3>
+    <p class="reveal" style="max-width:760px;color:var(--ink-2)">Claude 사용량이 바닥나면 Codex가, 반대면 Claude Code가 구동을 이어받습니다. 대화 기억에 기대지 않고 파일만으로 상태를 복원하는 것이 핵심입니다. (위임 규칙 3.7)</p>
+    <div class="handoff">
+      <div class="reveal"><b>"구동자 교체"</b>현재 구동자는 새 지시를 멈추고 상태 파일을 최신으로 갱신</div>
+      <div class="reveal"><b>새 구동자 열기</b>같은 작업 폴더에서 Codex 또는 Claude Code 실행</div>
+      <div class="reveal"><b>두 파일 읽기</b><code>hermes-driver-handoff.md</code>(운영법) + <code>hermes-driver-state.md</code>(현재 상태)</div>
+      <div class="reveal"><b>인수 확인</b>실행 중 프로세스 없음, HEAD·해시가 기록과 일치하는지 대조</div>
+      <div class="reveal"><b>이어서 구동</b>한 번에 한 구동자만. 모든 지시 첫 줄에 구동자 표시</div>
+    </div>
+
+    <div class="grid g2" style="margin-top:34px">
+      <div class="reveal">
+        <h4 style="font-size:17px;margin-bottom:10px">위임 지시의 모양</h4>
+        <pre class="term"><span class="g">[위임 구동: Claude Code]</span>
+/dev-pipeline
+<span class="c"># 매 지시는 새 세션 — 상태는 파일로 복원</span>
+다음을 읽어 상태를 복원하라: 원장, 최신 보고서, 등록부
+시작 상태 확인: 봉투 소비, HEAD, 지휘 도구 기준선,
+  비대화형 작업자 호출 없음
+한도 대기: 재설정까지 30분 이내면 대기 후 1회 재개
+경계: 명세·스킬·roles.json 변경 금지, 병합·push 금지</pre>
+      </div>
+      <div class="reveal">
+        <h4 style="font-size:17px;margin-bottom:10px">사람만 할 수 있는 결정은 이렇게</h4>
+        <pre class="term"><span class="c"># 사용자가 Hermes TUI에 직접 붙여넣는 블록</span>
+/dev-pipeline
+<span class="v">사용자 본인 결정(D-96)이다.</span>
+리허설 시작. 봉투 64회
+  (Claude 16 · Codex 18 · agy 12 · DeepSeek 15)
+배치 A~D로 나누어 진행하고,
+사람 승인·비준 3회는 별도 본인 메시지로 받는다.</pre>
+        <p style="font-size:14px;color:var(--muted);margin-top:10px">구동자는 이 블록을 미리 만들어 주고, 사람이 한 번만 붙여넣으면 결정과 재개가 함께 처리됩니다.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 07 JOURNEY ===================== -->
+<section class="block slide" id="journey">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div class="sec-num">07 — 진행 현황</div>
+      <h2>파이프라인을 파이프라인으로 다시 만들었습니다</h2>
+      <p>초기 버전으로 리허설을 마친 뒤, 파이프라인 자체를 더 엄격한 명세(v5.3)로 재구축했습니다. 이 재구축을 네 개의 조각(Slice)으로 나눠 <b>파이프라인 자신이 개발</b>했고, 네 조각 모두 수용되어 main에 병합되었습니다.</p>
+    </div>
+
+    <div class="slices">
+      <div class="slice reveal"><span class="st">수용 완료</span><h4>조각 1 · 검증기와 게이트 엔진</h4><p>런타임 상태 잠금, 증거 envelope 조립, 단계별 strict 게이트 판정. 승인 사본과 명세 해시 검증 체계.</p><div class="meta"><span>5b1f52f</span><span>274 PASS</span></div></div>
+      <div class="slice reveal"><span class="st">수용 완료</span><h4>조각 2 · 상태 기계 · 승인 · 커밋</h4><p>worktree 사전/사후 스냅샷 검증, 승인 레코드 발행, 허용 목록 기반 원자적 커밋 격리.</p><div class="meta"><span>e86e95b</span><span>441 PASS</span></div></div>
+      <div class="slice reveal"><span class="st">수용 완료</span><h4>조각 3 · Node &amp; Python 멀티 런타임</h4><p>3a Node 검사 엔진, 3b Python(Django/unittest) 어댑터. 언어가 달라도 같은 증거 형식을 보장.</p><div class="meta"><span>9539a3f</span><span>597 PASS</span></div></div>
+      <div class="slice reveal"><span class="st">수용 · 병합</span><h4>조각 4 · 실전 데모 리허설과 통합</h4><p>합성 Django 앱으로 전체 흐름 시연(사람 승인·비준 3회), 보안 강화 게이트 통과. 35개 수용 기준 NOT MET 0건.</p><div class="meta"><span>beb7ab6</span><span>639 PASS</span></div></div>
+    </div>
+
+    <h3 class="sub reveal">타임라인</h3>
+    <div class="timeline">
+      <div class="tl reveal"><div class="d">2026-09-29</div><div><h4>설계 확정</h4><p>Hermes 지휘 + Claude Code · Codex · Antigravity 3개 공급사 구조. S/M/L 분류와 단계별 산출물, guard·checks 안전장치 정의.</p></div></div>
+      <div class="tl reveal"><div class="d">2026-09-30</div><div><h4>파일럿 전 M 작업 리허설 통과</h4><p>테스트 오류와 제품 결함을 일부러 심었더니 리뷰가 둘 다 잡았습니다. 강제 중단(SIGTERM) 후 같은 세션으로 재개, 한도 오류 주입 시 추가 호출 없이 승인 대기 — 모두 확인.</p></div></div>
+      <div class="tl reveal"><div class="d">2026-10-08</div><div><h4>모델 세대 교체</h4><p>역할 모델을 Opus 5.5 · Sonnet 5.5 · GPT-6.1-sol로 변경. 명세(SPEC) 정밀 교정 진행.</p></div></div>
+      <div class="tl reveal"><div class="d">2026-10-09</div><div><h4>위임 규칙 제정 · 결정 기록 시작</h4><p>Claude Code가 첫 위임 구동자가 되고, 모든 위임 결정을 D-01부터 근거·대안과 함께 기록하기 시작.</p></div></div>
+      <div class="tl reveal"><div class="d">2026-10-10</div><div><h4>테스트 작성 절차 개편</h4><p>작성 AI가 저장소 파일을 직접 읽고, 실제 실행 결과를 돌려받아 교정하는 방식으로 변경 (파일당 교정 2회).</p></div></div>
+      <div class="tl reveal"><div class="d">2026-10-12</div><div><h4>신규 공급자 확장 제안</h4><p>Claude 사용량의 약 3/4이 테스트 작성이라는 분석 → DeepSeek V4.1 Flash 등 저가 모델로 이전하는 방안 수립.</p></div></div>
+      <div class="tl reveal"><div class="d">2026-10-16</div><div><h4>이중 구동자 체계 · 조각 4 시작</h4><p>Codex도 구동자를 맡을 수 있게 규칙 3.7 추가. 파일 기반 인수인계 문서 작성.</p></div></div>
+      <div class="tl reveal"><div class="d">2026-10-19</div><div><h4>실전 데모 리허설</h4><p>합성 Django 프로젝트로 foundation → 업무 테스트 RED → 구현 GREEN 전 과정을 실행. 사람의 승인·비준 3건을 원문 해시로 보존.</p></div></div>
+      <div class="tl now reveal"><div class="d">2026-10-20</div><div><h4>조각 4 수용 → main 통합 → 실전형 리허설 시작</h4><p>조각 1~4 병합(beb7ab6), 지휘 도구를 새 코드로 전환(D-93), Gemini 보조 역할 신설(D-94), agy <code>--json-schema</code> 구조화 리뷰 반영(D-95), PC 자산관리 상태 API 리허설 시작(D-96).</p></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 08 NUMBERS ===================== -->
+<section class="block dark slide" id="numbers">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div class="sec-num">08 — 숫자로 보기</div>
+      <h2>조각 4 한 개를 만드는 데 들어간 것</h2>
+      <p>가장 최근에 수용된 조각 4의 실제 원장 기록입니다. 좋은 숫자만이 아니라 실패·미관측도 그대로 보여 주는 것이 이 프로젝트의 원칙입니다.</p>
+    </div>
+
+    <div class="num-grid">
+      <div class="panel reveal">
+        <h4>모델별 작업자 호출 수 (총 118회)</h4>
+        <div class="bars">
+          <div class="bar"><div class="lbl">DeepSeek V4.1 Flash<small>테스트 작성 · 교정</small></div><div class="track"><div class="fill" style="--v:40;--c:var(--deepseek)"></div></div><div class="val">40</div></div>
+          <div class="bar"><div class="lbl">GPT-6.1-sol<small>구현 · 독립 리뷰</small></div><div class="track"><div class="fill" style="--v:25;--c:var(--openai)"></div></div><div class="val">25</div></div>
+          <div class="bar"><div class="lbl">Claude Opus 5.5<small>판정 · 수용 · 리뷰</small></div><div class="track"><div class="fill" style="--v:22;--c:var(--claude)"></div></div><div class="val">22</div></div>
+          <div class="bar"><div class="lbl">Gemini 3.8 Flash<small>보안 리뷰</small></div><div class="track"><div class="fill" style="--v:17;--c:var(--google)"></div></div><div class="val">17</div></div>
+          <div class="bar"><div class="lbl">Opus 4.6 Thinking (agy)<small>독립 리뷰 → 한도로 교체</small></div><div class="track"><div class="fill" style="--v:7;--c:#a7b0c2"></div></div><div class="val">7</div></div>
+          <div class="bar"><div class="lbl">MiMo V2.6 Pro<small>시험 투입 — 4/4 시간 초과</small></div><div class="track"><div class="fill" style="--v:4;--c:var(--red)"></div></div><div class="val">4</div></div>
+          <div class="bar"><div class="lbl">Claude Sonnet 5.5<small>초기 독립 리뷰</small></div><div class="track"><div class="fill" style="--v:3;--c:#e9a58c"></div></div><div class="val">3</div></div>
+        </div>
+      </div>
+      <div class="panel reveal">
+        <h4>결과와 비용</h4>
+        <div class="kpis">
+          <div class="kpi"><b>118 / 130</b><span>사용 호출 / 승인된 봉투</span></div>
+          <div class="kpi"><b>35 / 35</b><span>수용 기준 충족 (NOT MET 0)</span></div>
+          <div class="kpi"><b>3건</b><span>사람의 직접 승인 · 비준 (원문 해시 보존)</span></div>
+          <div class="kpi"><b>10건</b><span>남은 한계 — 숨기지 않고 등록·공개</span></div>
+          <div class="kpi"><b>$9.33</b><span>관측된 25회의 API 환산 비용 부분합</span></div>
+          <div class="kpi"><b>93회</b><span>비용 미관측 — 0이 아니라 unknown</span></div>
+        </div>
+        <p class="honest">구독 요금제 호출(Codex·agy 등)은 호출당 비용이 보고되지 않습니다. 그래서 "총비용 $9"라고 말하지 않고, 관측 범위와 미관측 건수를 함께 보고합니다.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 09 LESSONS ===================== -->
+<section class="block slide" id="lessons">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div class="sec-num">09 — 운영하며 배운 것</div>
+      <h2>직접 부딪혀서 알게 된 여덟 가지</h2>
+      <p>발표에서 이야기하기 좋은 실제 사례들입니다. 모두 원장과 결정 기록에 근거가 남아 있습니다.</p>
+    </div>
+
+    <div class="lessons">
+      <div class="lesson reveal">
+        <div class="q">LESSON 1 · 테스트 품질</div>
+        <h4>테스트 품질은 모델보다 "도구와 피드백"이 정한다</h4>
+        <p>같은 Gemini라도 조건에 따라 결과가 완전히 달랐습니다.</p>
+        <table class="mini-tbl">
+          <tr><td>프롬프트 텍스트만 보고 작성</td><td class="bad">무효 테스트 반복</td></tr>
+          <tr><td>파일을 직접 읽고 실행 결과를 돌려받음</td><td class="ok">교정 1회로 유효 21건</td></tr>
+          <tr><td>같은 조건, 상태·Git 연동 테스트</td><td class="bad">무효 2회</td></tr>
+          <tr><td>Claude Sonnet, 읽기 전용 도구 사용</td><td class="ok">3파일 모두 교정 1회 내</td></tr>
+        </table>
+      </div>
+      <div class="lesson reveal">
+        <div class="q">LESSON 2 · 판정</div>
+        <h4>"종료 코드 0"은 완료가 아니다</h4>
+        <p>오류 문자열을 인용한 코드를 시간 초과로 오분류하거나, 굵은 글씨 판정 줄 하나 때문에 파서가 멈춘 적이 있습니다. 그래서 판정을 7개 층으로 분리하고, 원본 응답을 고쳐서 성공으로 만들지 않는 규칙을 세웠습니다.</p>
+      </div>
+      <div class="lesson reveal">
+        <div class="q">LESSON 3 · AI의 상상력</div>
+        <h4>검증할 수 없는 걸 요구하면 AI는 API를 지어낸다</h4>
+        <p>공개 API로 확인할 수 없는 항목을 테스트하라고 하자, 작성 AI가 존재하지 않는 API를 만들어 냈습니다. 이후 Hermes가 먼저 "검증 가능 / 불가"로 나누고, 불가 항목은 명세 공백으로 보고하게 바꿨습니다. (D-46)</p>
+      </div>
+      <div class="lesson reveal">
+        <div class="q">LESSON 4 · 비용</div>
+        <h4>지휘를 비싼 모델로 돌리면 한도가 가장 먼저 바닥난다</h4>
+        <p>지휘 모델은 작업 한 건에 수십 번 호출되고 매번 누적 대화를 다시 읽습니다. 품질을 좌우하는 판정 몇 곳에만 Opus를 쓰고, 지휘 모델은 사용량에 따라 사람이 바꿉니다.</p>
+      </div>
+      <div class="lesson reveal">
+        <div class="q">LESSON 5 · 권한 경계</div>
+        <h4>Hermes가 구동자를 거부하는 것은 버그가 아니라 기능이다</h4>
+        <p>구동자가 "사용자 결정 전달"로 모델 교체를 처리하려 하자, Hermes는 본인 메시지가 필요한 사안이라며 거부했습니다. 다음 조각을 확인 없이 시작하려 할 때도 마찬가지였습니다. 경계가 실제로 작동한다는 증거입니다.</p>
+      </div>
+      <div class="lesson reveal">
+        <div class="q">LESSON 6 · 모델 평가</div>
+        <h4>싼 모델은 "어디까지 맡길지"를 측정해서 정한다</h4>
+        <p>Gemini 3.8 Flash를 정답이 있는 12개 과제로 평가했습니다. 형식 12/12 유효, 정상 사례 오탐 0/3이었지만 세부 결함은 9/14만 찾았고 근거 없는 MET 판정도 있었습니다. 결론: 주 리뷰어가 아니라 <b>보조 리뷰어</b>로만 배치. (D-90 → D-94)</p>
+      </div>
+      <div class="lesson reveal">
+        <div class="q">LESSON 7 · 공급자 실측</div>
+        <h4>벤치마크 순위보다 우리 과제에서의 성적</h4>
+        <p>DeepSeek은 Node·단순 테스트는 잘했지만 Python 어댑터 내부에서는 반복 실패했습니다. MiMo는 4번 모두 시간 초과로 보류, 한 Gemini 모델은 사용 한도 소진으로 제외했습니다. 사다리 순서는 인상이 아니라 기록으로 바꿉니다.</p>
+      </div>
+      <div class="lesson reveal">
+        <div class="q">LESSON 8 · 운영 요령</div>
+        <h4>작은 운영 실수가 몇 시간을 날린다</h4>
+        <p>자정 대기(sleep)와 Hermes 실행을 한 명령에 묶었다가 명령 시간 한도로 Hermes가 죽은 적이 있습니다. 실패한 다른 모델의 초안을 새 작성자에게 넘기면 실수가 전염됩니다. 이런 함정은 모두 인수인계 문서에 남겼습니다.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 10 NEXT ===================== -->
+<section class="block alt slide" id="next">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div class="sec-num">10 — 지금과 다음</div>
+      <h2>최종 목표는 실제 업무 시스템입니다</h2>
+      <p>파이프라인은 수단입니다. 이 파이프라인으로 회사의 PC 자산관리 시스템을 만드는 것이 첫 번째 실전 목표입니다.</p>
+    </div>
+
+    <div class="next">
+      <div class="now-card reveal">
+        <span class="live">지금 진행 중</span>
+        <h3>실전형 리허설 — PC 자산 상태 API</h3>
+        <p>새 지휘 도구로 실제와 같은 작은 과제를 처음부터 끝까지 수행합니다. 합성 자료만 쓰고, 사람의 승인·비준 3회를 거칩니다.</p>
+        <dl>
+          <dt>과제</dt><dd><code style="background:rgba(255,255,255,.1)">GET /pc-assets/status/</code> 읽기 전용 엔드포인트</dd>
+          <dt>봉투</dt><dd>64회 (Claude 16 · Codex 18 · agy 12 · DeepSeek 15)</dd>
+          <dt>진행 방식</dt><dd>배치 A~D로 분할, 배치 A 실행 중</dd>
+          <dt>근거</dt><dd>사용자 본인 결정 D-96</dd>
+        </dl>
+      </div>
+      <div class="road">
+        <div class="card reveal"><span class="icon">🖥</span><div><h4>PC 자산관리 파일럿</h4><p>직원 약 1,000명에게 지급한 PC를 Excel로 관리하던 것을 웹앱으로. 파일럿 약 700대, 사람별·PC별 현재/과거 이력과 문제 추적. Python + Django + PostgreSQL 후보.</p></div></div>
+        <div class="card reveal"><span class="icon">🔌</span><div><h4>DeepSeek 정식 통합</h4><p>현재 별도 경로로 호출하는 DeepSeek을 roles.json 공급자 구조에 넣고, 가격표 기반으로 모든 호출 비용을 관측.</p></div></div>
+        <div class="card reveal"><span class="icon">🪜</span><div><h4>과제 유형별 모델 사다리</h4><p>역할이 아니라 과제 유형으로 배정. 싼 모델부터 시작하고, 교정 2회 뒤에도 무효면 다음 단계 모델로.</p></div></div>
+        <div class="card reveal"><span class="icon">📦</span><div><h4>격리 실행 공간 · 지속 재평가</h4><p>작성 AI가 일회용 복사본 안에서 직접 테스트를 돌려 보게 하고, 고정 평가 묶음으로 새 모델을 계속 비교.</p></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 11 GLOSSARY ===================== -->
+<section class="block slide" id="glossary">
+  <div class="wrap">
+    <div class="sec-head reveal">
+      <div class="sec-num">11 — 용어 풀이</div>
+      <h2>처음 듣는 분들을 위한 용어집</h2>
+      <p>질문이 자주 나오는 용어들입니다. 눌러서 펼쳐 보세요.</p>
+    </div>
+    <div class="gloss">
+      <details class="reveal"><summary>Hermes <small>오케스트레이터</small></summary><p>여러 AI 도구를 순서대로 호출하고 결과를 관리하는 에이전트입니다. 이 프로젝트에서는 dev-pipeline 스킬을 따라 단계를 진행하고, 규칙·예산·증거를 관리하는 "팀장" 역할을 합니다.</p></details>
+      <details class="reveal"><summary>위임 구동자 <small>Delegated Driver</small></summary><p>사람 대신 Hermes에 지시를 보내고 결과를 읽는 AI(Claude Code 또는 Codex)입니다. 규칙에 정해진 범위 안에서만 결정하고, 나머지는 사람에게 올립니다.</p></details>
+      <details class="reveal"><summary>조각 <small>Slice</small></summary><p>큰 개발을 검증 가능한 단위로 나눈 것입니다. 조각마다 호출 예산이 따로 있고, 끝나면 사람이 수용 여부를 검토합니다.</p></details>
+      <details class="reveal"><summary>worktree <small>격리 작업 폴더</small></summary><p>같은 Git 저장소의 다른 브랜치를 별도 폴더로 꺼내 쓰는 기능입니다. AI는 이 폴더의 <code>agent/&lt;run-id&gt;</code> 브랜치에서만 작업하므로 원본(main)은 안전합니다.</p></details>
+      <details class="reveal"><summary>유효 RED <small>올바른 실패</small></summary><p>구현 전에 쓴 테스트가 "기능이 아직 없어서" 실패하는 상태입니다. 문법 오류나 설정 오류로 실패하는 것은 인정하지 않습니다. RED → 구현 → GREEN이 TDD의 기본 흐름입니다.</p></details>
+      <details class="reveal"><summary>봉투 <small>Budget Envelope</small></summary><p>조각 하나에 쓸 수 있는 AI 호출 횟수 상한입니다. 안에서의 배분은 위임하고, 다 쓰면 사람이 증액을 결정합니다. 실패한 호출도 소비로 셉니다.</p></details>
+      <details class="reveal"><summary>판정 · 수용 <small>Judge · Accept</small></summary><p>판정은 리뷰어들의 지적이 실제 diff에 근거가 있는지 가려 등급(BLOCKER/HIGH/MEDIUM/LOW)을 매기는 것, 수용은 수용 기준을 하나씩 증거로 확인해 최종 합격을 정하는 것입니다.</p></details>
+      <details class="reveal"><summary>원장 · 등록부 <small>Ledger · Registry</small></summary><p>원장은 모든 호출·소비·결과를 시간순으로 적은 기록, 등록부는 효력이 있는 결정·규칙·기준선의 해시 목록입니다. 둘 다 덮어쓰지 않고 이전본을 보존합니다.</p></details>
+      <details class="reveal"><summary>SPEC <small>명세</small></summary><p>함수 시그니처, 동작, 오류 처리, 테스트 목록까지 구현 전에 정해 두는 문서입니다. 테스트 작성자와 구현자는 같은 SPEC을 보고 따로 일합니다.</p></details>
+      <details class="reveal"><summary>agy <small>Antigravity CLI</small></summary><p>Google의 에이전트 CLI입니다. 이 파이프라인에서는 Gemini 모델(및 일부 Claude 모델)을 계획 모드·샌드박스로 호출하는 통로로 쓰며, 코드 실행 권한은 주지 않습니다.</p></details>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== FOOTER ===================== -->
+<footer>
+  <div class="wrap foot-grid">
+    <div>
+      <div class="brand" style="color:#fff;margin-bottom:14px"><span class="brand-mark">H</span> Hermes Multi-Agent Pipeline</div>
+      <p>사람은 결정하고, AI는 서로를 검증하며 일합니다.<br>모든 수치는 2026-10-20 기준 실제 원장·결정 기록에서 가져왔습니다.</p>
+      <p style="font-size:13px">발표 팁: 상단 <b style="color:#fff">▶ 발표 모드</b>를 켜고 ← → 키로 섹션을 넘기세요. 인쇄(⌘P)하면 유인물용 레이아웃으로 바뀝니다.</p>
+    </div>
+    <div>
+      <h4>참고한 문서 (Docs/)</h4>
+      <ul>
+        <li>2026-09-29-hermes-multi-agent-pipeline-design.md</li>
+        <li>2026-09-30-hermes-M-rehearsal.md</li>
+        <li>2026-10-08-hermes-conversation-handoff.md</li>
+        <li>2026-10-09-hermes-delegation-rules.md</li>
+        <li>2026-10-09-delegated-decisions.md</li>
+        <li>2026-10-12-hermes-provider-expansion-proposal.md</li>
+        <li>hermes-driver-handoff.md</li>
+        <li>hermes-driver-state.md</li>
+        <li>hermes-setup-guide.md</li>
+        <li>pipeline/roles.json · slice4-summary.md</li>
+      </ul>
+    </div>
+  </div>
+</footer>
+
+<div class="slide-hud" aria-label="발표 탐색">
+  <span id="slideCount">1 / 1</span>
+  <button type="button" id="prevSlide" aria-label="이전 섹션">←</button>
+  <button type="button" id="nextSlide" aria-label="다음 섹션">→</button>
+</div>
+
+<script type="module">
+/* ---------- Flow stepper data (design doc §5, models per current roles.json) ---------- */
+const P = { claude: 'var(--claude)', openai: 'var(--openai)', google: 'var(--google)', deepseek: 'var(--deepseek)', human: 'var(--human)', tool: '#6b7180' };
+const SKIP = null;
+const steps = [
+  { n: '0',  t: '접수 · 분류', out: 'state.json', kind: 'script',
+    L: ['Hermes', P.tool], M: ['Hermes', P.tool], S: ['Hermes', P.tool] },
+  { n: '1',  t: '계획 — 목표·범위·수용 조건', out: 'TASK.md',
+    L: ['Claude Opus 5.5', P.claude], M: ['Claude Sonnet 5.5', P.claude], S: ['Hermes가 직접', P.tool] },
+  { n: '2',  t: '설계 — 구조·인터페이스', out: 'DESIGN.md',
+    L: ['Claude Opus 5.5', P.claude], M: SKIP, S: SKIP },
+  { n: '3',  t: '명세(SPEC) 작성', out: 'SPEC.md',
+    L: ['Claude Opus 5.5', P.claude], M: ['Claude Sonnet 5.5', P.claude], S: SKIP },
+  { n: '4',  t: '명세 리뷰', out: 'spec-review-*.md',
+    L: ['Codex + Gemini (2명)', P.openai], M: ['Gemini', P.google], S: SKIP },
+  { n: '4a', t: '사람의 명세 승인', out: 'TUI 승인', kind: 'human',
+    L: ['사용자', P.human], M: SKIP, S: SKIP },
+  { n: '5',  t: '테스트 먼저 작성 (RED)', out: 'tests/', tag: 'TDD',
+    L: ['Gemini · DeepSeek', P.google], M: ['Gemini · DeepSeek', P.google], S: ['Gemini Flash', P.google] },
+  { n: '6',  t: '제품 코드 구현', out: 'code diff',
+    L: ['Codex', P.openai], M: ['Codex', P.openai], S: ['Codex', P.openai] },
+  { n: '7',  t: '빌드 · 테스트 실행', out: 'checks-*.md', kind: 'script',
+    L: ['checks 스크립트', P.tool], M: ['checks 스크립트', P.tool], S: ['checks 스크립트', P.tool] },
+  { n: '8',  t: '구현 리뷰 — 명세 준수·회귀', out: 'impl-review-*.md', tag: '병렬',
+    L: ['Claude Opus 5.5', P.claude], M: ['Claude Sonnet 5.5', P.claude], S: ['Sonnet 5.5 (+Gemini 보조)', P.claude] },
+  { n: '9',  t: '보안 · 엣지케이스 리뷰', out: 'sec-review-*.md', tag: '병렬',
+    L: ['Gemini', P.google], M: ['Gemini', P.google], S: ['Gemini Flash', P.google] },
+  { n: '9a', t: '리뷰 지적 판정', out: 'judge-*.md',
+    L: ['Claude Opus 5.5', P.claude], M: ['Claude Opus 5.5', P.claude], S: ['Claude Opus 5.5', P.claude] },
+  { n: '10', t: '수정 루프 (BLOCKER·HIGH, 최대 2회)', out: 'fix diff',
+    L: ['Codex', P.openai], M: ['Codex', P.openai], S: ['Codex', P.openai] },
+  { n: '11', t: '최종 수용 판정 · 커밋 · 보고', out: 'report.md · agent/<run-id>',
+    L: ['Opus 판정 + Hermes', P.claude], M: ['Opus 판정 + Hermes', P.claude], S: ['Opus 판정 + Hermes', P.claude] },
+  { n: '12', t: '병합', out: 'main', kind: 'human',
+    L: ['사용자', P.human], M: ['사용자', P.human], S: ['사용자', P.human] },
+];
+const sizeText = {
+  L: 'L — 새 기능·서브시스템, 구조나 공개 인터페이스 변경, 의존성 추가. 설계와 사람의 명세 승인까지 모든 단계를 거칩니다.',
+  M: 'M — 파일 3~5개 또는 새 함수·모듈 추가, 공개 인터페이스 변경 없음. 설계와 명세 승인을 생략합니다.',
+  S: 'S — 파일 1~2개의 작은 변경(버그 수정 등). 계획은 Hermes가 직접 하고 명세 단계를 건너뜁니다.',
+};
+const grid = document.getElementById('flowGrid');
+const desc = document.getElementById('sizeDesc');
+const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+function render(size) {
+  grid.innerHTML = steps.map(s => {
+    const a = s[size];
+    const cls = ['step', s.kind || '', a ? '' : 'skip'].join(' ');
+    const actor = a ? `<span class="actor" style="color:${a[1]}">${esc(a[0])}</span>`
+                    : `<span class="actor" style="color:var(--muted)">생략</span>`;
+    return `<div class="${cls}">
+      <div class="sn"><span>STEP ${s.n}</span>${s.tag ? `<span class="tag">${s.tag}</span>` : ''}</div>
+      <h4>${esc(s.t)}</h4>${actor}<span class="out">${esc(s.out)}</span></div>`;
+  }).join('');
+  const active = steps.filter(s => s[size]).length;
+  desc.textContent = `${sizeText[size]} (${active}개 단계)`;
+}
+document.querySelectorAll('.size-toggle button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.size-toggle button').forEach(b => b.setAttribute('aria-pressed', String(b === btn)));
+    render(btn.dataset.size);
+  });
+});
+render('L');
+
+/* ---------- Scrollspy: native scroll-target-group with IntersectionObserver fallback ---------- */
+const navLinks = [...document.querySelectorAll('.nav-links a')];
+if (CSS.supports('scroll-target-group: auto')) {
+  const sync = () => {
+    const cur = document.querySelector('.nav-links a:target-current');
+    navLinks.forEach(l => l.setAttribute('aria-current', l === cur ? 'true' : 'false'));
+  };
+  sync();
+  document.addEventListener('scrollend', sync);
+} else {
+  const io = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (!e.isIntersecting) return;
+      const id = e.target.id;
+      navLinks.forEach(l => {
+        const on = l.getAttribute('href') === `#${id}`;
+        l.classList.toggle(':target-current', on);
+        l.setAttribute('aria-current', on ? 'true' : 'false');
+        if (on) l.scrollIntoView({ block: 'nearest', inline: 'center' });
+      });
+    });
+  }, { rootMargin: '-45% 0px -50% 0px' });
+  navLinks.forEach(l => { const s = document.querySelector(l.getAttribute('href')); if (s) io.observe(s); });
+}
+
+/* ---------- Presentation mode ---------- */
+const slides = [...document.querySelectorAll('.slide')];
+const btn = document.getElementById('presentBtn');
+const counter = document.getElementById('slideCount');
+const currentIndex = () => {
+  const mid = window.innerHeight * 0.35;
+  let idx = 0;
+  slides.forEach((s, i) => { if (s.getBoundingClientRect().top <= mid) idx = i; });
+  return idx;
+};
+const updateCounter = () => { counter.textContent = `${currentIndex() + 1} / ${slides.length}`; };
+const go = d => {
+  const i = Math.min(slides.length - 1, Math.max(0, currentIndex() + d));
+  slides[i].scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+};
+btn.addEventListener('click', () => {
+  const on = document.documentElement.classList.toggle('present');
+  btn.setAttribute('aria-pressed', String(on));
+  btn.textContent = on ? '■ 발표 종료' : '▶ 발표 모드';
+  updateCounter();
+});
+document.getElementById('prevSlide').addEventListener('click', () => go(-1));
+document.getElementById('nextSlide').addEventListener('click', () => go(1));
+document.addEventListener('scroll', updateCounter, { passive: true });
+document.addEventListener('keydown', e => {
+  if (!document.documentElement.classList.contains('present')) return;
+  if (e.target.closest('input, textarea, summary, button')) return;
+  if (['ArrowRight', 'PageDown', ' '].includes(e.key)) { e.preventDefault(); go(1); }
+  else if (['ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); go(-1); }
+  else if (e.key === 'Escape') btn.click();
+});
+updateCounter();
+</script>
+</body>
+</html>
