@@ -1,0 +1,1908 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark" data-view="all">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hermes Multi-Agent AI Development Pipeline — Architecture & Field Guide</title>
+<meta name="description" content="Hermes를 오케스트레이터로 Claude·Codex·Gemini·DeepSeek가 분업하고 기계적 증거 게이트로 검증하는 멀티 에이전트 AI 개발 파이프라인 소개 및 발표 자료">
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+/* ==========================================================================
+   1. DESIGN TOKENS (Dual Theme: Obsidian Blueprint Dark & Studio Slate Light)
+   ========================================================================== */
+:root {
+  --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, Consolas, monospace;
+  --max-w: 1240px;
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 22px;
+
+  /* Brand & Provider Accents */
+  --accent: #14b8a6;
+  --accent-2: #38bdf8;
+  --accent-glow: rgba(20, 184, 166, 0.22);
+  --amber: #f59e0b;
+  --amber-soft: rgba(245, 158, 11, 0.14);
+  --danger: #f43f5e;
+  --danger-soft: rgba(244, 63, 94, 0.14);
+  --success: #10b981;
+  --success-soft: rgba(16, 185, 129, 0.14);
+
+  /* AI Provider Colors */
+  --claude: #ea580c;
+  --claude-bg: rgba(234, 88, 12, 0.14);
+  --codex: #10b981;
+  --codex-bg: rgba(16, 185, 129, 0.14);
+  --gemini: #3b82f6;
+  --gemini-bg: rgba(59, 130, 246, 0.15);
+  --deepseek: #6366f1;
+  --deepseek-bg: rgba(99, 102, 241, 0.16);
+  --human: #a855f7;
+  --human-bg: rgba(168, 85, 247, 0.16);
+  --hermes: #eab308;
+  --hermes-bg: rgba(234, 179, 8, 0.15);
+}
+
+html[data-theme="dark"] {
+  --bg: #070b12;
+  --bg-alt: #0c121e;
+  --surface: #111927;
+  --surface-2: #172235;
+  --surface-glass: rgba(17, 25, 39, 0.82);
+  --border: rgba(148, 163, 184, 0.14);
+  --border-strong: rgba(56, 189, 248, 0.32);
+  --text: #f1f5f9;
+  --text-2: #cbd5e1;
+  --muted: #94a3b8;
+  --code-bg: rgba(15, 23, 42, 0.9);
+  --shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.55);
+  --grid-line: rgba(148, 163, 184, 0.045);
+}
+
+html[data-theme="light"] {
+  --bg: #f8fafc;
+  --bg-alt: #f1f5f9;
+  --surface: #ffffff;
+  --surface-2: #f1f5f9;
+  --surface-glass: rgba(255, 255, 255, 0.88);
+  --border: #e2e8f0;
+  --border-strong: #0d9488;
+  --text: #0f172a;
+  --text-2: #334155;
+  --muted: #64748b;
+  --code-bg: #0f172a;
+  --shadow: 0 8px 24px -6px rgba(15, 23, 42, 0.07);
+  --grid-line: rgba(15, 23, 42, 0.035);
+  --accent: #0d9488;
+  --accent-2: #0284c7;
+  --claude: #c2410c;
+  --codex: #047857;
+  --gemini: #1d4ed8;
+  --deepseek: #4338ca;
+  --human: #7e22ce;
+  --hermes: #b45309;
+}
+
+/* ==========================================================================
+   2. BASE & RESET
+   ========================================================================== */
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 76px; }
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background-color: var(--bg);
+  background-image:
+    linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+  background-size: 36px 36px;
+  color: var(--text);
+  line-height: 1.68;
+  font-size: 16px;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+a { color: inherit; text-decoration: none; }
+h1, h2, h3, h4, h5 { margin: 0; line-height: 1.28; letter-spacing: -0.025em; }
+p { margin: 0 0 1rem; }
+ul, ol { margin: 0; padding-left: 1.25rem; }
+code, pre, .mono { font-family: var(--font-mono); }
+code {
+  font-size: 0.86em;
+  padding: 0.15em 0.45em;
+  border-radius: 5px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--accent-2);
+}
+html[data-theme="light"] code { color: #0f766e; }
+
+.container { max-width: var(--max-w); margin: 0 auto; padding: 0 24px; }
+
+/* Easy Mode Filtering (Hides deep technical blocks when user selects Easy Mode) */
+html[data-view="easy"] .deep-only { display: none !important; }
+.easy-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px;
+  background: var(--amber-soft); color: var(--amber); border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+/* ==========================================================================
+   3. TOP NAVIGATION & TOOLBAR
+   ========================================================================== */
+.topbar {
+  position: sticky; top: 0; z-index: 100;
+  background: var(--surface-glass);
+  backdrop-filter: saturate(180%) blur(14px);
+  -webkit-backdrop-filter: saturate(180%) blur(14px);
+  border-bottom: 1px solid var(--border);
+}
+.topbar-inner {
+  max-width: var(--max-w); margin: 0 auto; padding: 0 20px;
+  height: 64px; display: flex; align-items: center; gap: 14px;
+}
+.brand {
+  display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 16px; white-space: nowrap;
+}
+.brand-logo {
+  width: 32px; height: 32px; border-radius: 9px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #041014; display: grid; place-items: center; font-weight: 900; font-size: 16px;
+  box-shadow: 0 0 16px var(--accent-glow);
+}
+.brand-sub {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+  padding: 2px 7px; border-radius: 999px; background: var(--surface-2); color: var(--accent);
+  border: 1px solid var(--border);
+}
+.nav-scroll {
+  display: flex; align-items: center; gap: 2px; overflow-x: auto; scrollbar-width: none; flex: 1;
+}
+.nav-scroll::-webkit-scrollbar { display: none; }
+.nav-scroll a {
+  font-size: 13.5px; font-weight: 600; color: var(--muted);
+  padding: 6px 10px; border-radius: 8px; white-space: nowrap; transition: all 0.18s;
+}
+.nav-scroll a:hover, .nav-scroll a.active {
+  color: var(--text); background: var(--surface-2);
+}
+.nav-scroll a.active { color: var(--accent); }
+
+.toolbar { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.tool-btn {
+  font: inherit; font-size: 12.5px; font-weight: 700;
+  padding: 6px 11px; border-radius: 8px; cursor: pointer;
+  background: var(--surface-2); color: var(--text-2);
+  border: 1px solid var(--border); display: inline-flex; align-items: center; gap: 6px;
+  transition: all 0.18s; white-space: nowrap;
+}
+.tool-btn:hover { border-color: var(--accent); color: var(--text); }
+.tool-btn[aria-pressed="true"] {
+  background: var(--accent); color: #041014; border-color: var(--accent);
+}
+
+/* ==========================================================================
+   4. HERO SECTION & INTERACTIVE BLUEPRINT
+   ========================================================================== */
+.hero {
+  position: relative; padding: 68px 0 56px; border-bottom: 1px solid var(--border);
+  overflow: hidden;
+}
+.hero::before {
+  content: ""; position: absolute; inset: -120px auto auto 55%;
+  width: 680px; height: 420px; border-radius: 50%;
+  background: radial-gradient(circle, var(--accent-glow), transparent 68%);
+  pointer-events: none;
+}
+.hero-grid {
+  display: grid; grid-template-columns: 1.08fr 1fr; gap: 40px; align-items: center;
+}
+.status-banner {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 5px 13px; border-radius: 999px; font-size: 12.5px; font-weight: 700;
+  background: var(--success-soft); color: var(--success);
+  border: 1px solid rgba(16, 185, 129, 0.32); margin-bottom: 18px;
+}
+.status-banner .pulse-dot {
+  width: 8px; height: 8px; border-radius: 50%; background: var(--success);
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.25);
+  animation: pulse 2s infinite;
+}
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+.hero h1 {
+  font-size: clamp(32px, 4.2vw, 50px); font-weight: 850; line-height: 1.18; margin-bottom: 18px;
+}
+.hero h1 .hl {
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.hero-lead {
+  font-size: 17.5px; color: var(--text-2); margin-bottom: 26px; max-width: 580px;
+}
+.hero-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 28px; }
+.btn-primary {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 12px 20px; border-radius: 10px; font-weight: 750; font-size: 14.5px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #041014; box-shadow: 0 8px 20px -6px var(--accent-glow);
+  transition: transform 0.15s;
+}
+.btn-primary:hover { transform: translateY(-2px); }
+.btn-secondary {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 12px 18px; border-radius: 10px; font-weight: 700; font-size: 14.5px;
+  background: var(--surface); color: var(--text); border: 1px solid var(--border);
+  transition: border-color 0.15s, transform 0.15s;
+}
+.btn-secondary:hover { border-color: var(--accent); transform: translateY(-2px); }
+
+.pitch-box {
+  background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--accent);
+  border-radius: var(--radius-md); padding: 14px 18px; font-size: 14.5px; color: var(--text-2);
+}
+.pitch-box strong { color: var(--text); display: block; margin-bottom: 4px; font-size: 15px; }
+
+/* Interactive Blueprint Panel in Hero */
+.blueprint-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  padding: 20px; box-shadow: var(--shadow); position: relative;
+}
+.bp-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding-bottom: 12px; margin-bottom: 14px; border-bottom: 1px solid var(--border);
+  font-family: var(--font-mono); font-size: 12px; color: var(--muted);
+}
+.bp-nodes { display: grid; gap: 10px; }
+.bp-tier {
+  border: 1px solid var(--border); border-radius: 12px; padding: 11px 14px;
+  background: var(--bg-alt); cursor: pointer; transition: all 0.18s;
+  display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center;
+}
+.bp-tier:hover, .bp-tier.active {
+  border-color: var(--accent); background: var(--surface-2);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.bp-tier .tier-badge {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 800;
+  padding: 4px 8px; border-radius: 6px; text-transform: uppercase;
+}
+.bp-tier .tier-title { font-weight: 750; font-size: 14.5px; }
+.bp-tier .tier-sub { font-size: 12.5px; color: var(--muted); display: block; }
+.bp-workers {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 2px;
+}
+.bp-worker {
+  border: 1px solid var(--border); border-radius: 10px; padding: 9px 8px;
+  text-align: center; background: var(--bg-alt); cursor: pointer; transition: all 0.18s;
+}
+.bp-worker:hover, .bp-worker.active { border-color: var(--accent); background: var(--surface-2); }
+.bp-worker b { display: block; font-size: 12.5px; margin-top: 4px; }
+.bp-worker small { font-size: 11px; color: var(--muted); display: block; line-height: 1.3; }
+.bp-inspector {
+  margin-top: 12px; padding: 12px 14px; border-radius: 10px;
+  background: var(--bg); border: 1px solid var(--border); font-size: 13.5px; color: var(--text-2);
+  min-height: 74px;
+}
+.bp-inspector strong { color: var(--accent); display: block; margin-bottom: 3px; }
+
+/* Key Metrics Strip */
+.metrics-strip {
+  display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-top: 40px;
+}
+.metric-tile {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md);
+  padding: 18px 16px; position: relative; overflow: hidden;
+}
+.metric-tile::after {
+  content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: var(--tile-color, var(--accent));
+}
+.metric-tile .val {
+  font-size: 26px; font-weight: 850; letter-spacing: -0.03em; display: block; color: var(--text);
+}
+.metric-tile .lbl { font-size: 13px; font-weight: 700; color: var(--text-2); margin-top: 2px; display: block; }
+.metric-tile .sub { font-family: var(--font-mono); font-size: 11.5px; color: var(--muted); margin-top: 4px; display: block; }
+
+/* ==========================================================================
+   5. SECTION LAYOUT & COMMON COMPONENTS
+   ========================================================================== */
+section.sec { padding: 84px 0; border-bottom: 1px solid var(--border); }
+section.sec.alt { background: var(--bg-alt); }
+
+.sec-header { max-width: 820px; margin-bottom: 40px; }
+.sec-kicker {
+  font-family: var(--font-mono); font-size: 12.5px; font-weight: 700;
+  color: var(--accent); text-transform: uppercase; letter-spacing: 0.08em;
+  display: inline-flex; align-items: center; gap: 8px; margin-bottom: 10px;
+}
+.sec-kicker::before {
+  content: ""; width: 20px; height: 2px; background: var(--accent);
+}
+.sec-header h2 { font-size: clamp(26px, 3.2vw, 38px); font-weight: 850; margin-bottom: 12px; }
+.sec-header p { font-size: 17px; color: var(--text-2); margin: 0; }
+
+.sub-title {
+  font-size: 20px; font-weight: 800; margin: 44px 0 16px;
+  display: flex; align-items: center; gap: 10px;
+}
+
+.grid { display: grid; gap: 16px; }
+.g2 { grid-template-columns: repeat(2, 1fr); }
+.g3 { grid-template-columns: repeat(3, 1fr); }
+.g4 { grid-template-columns: repeat(4, 1fr); }
+.g5 { grid-template-columns: repeat(5, 1fr); }
+
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-md); padding: 22px; box-shadow: var(--shadow);
+}
+.card h3, .card h4 { font-size: 17.5px; font-weight: 750; margin-bottom: 8px; }
+.card p { font-size: 15px; color: var(--text-2); margin: 0; }
+
+/* Provider Chips */
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px;
+  white-space: nowrap; border: 1px solid transparent;
+}
+.chip::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.chip.claude { color: var(--claude); background: var(--claude-bg); border-color: rgba(234, 88, 12, 0.28); }
+.chip.codex { color: var(--codex); background: var(--codex-bg); border-color: rgba(16, 185, 129, 0.28); }
+.chip.gemini { color: var(--gemini); background: var(--gemini-bg); border-color: rgba(59, 130, 246, 0.28); }
+.chip.deepseek { color: var(--deepseek); background: var(--deepseek-bg); border-color: rgba(99, 102, 241, 0.28); }
+.chip.human { color: var(--human); background: var(--human-bg); border-color: rgba(168, 85, 247, 0.28); }
+.chip.hermes { color: var(--hermes); background: var(--hermes-bg); border-color: rgba(234, 179, 8, 0.28); }
+.chip.script { color: var(--accent-2); background: rgba(56, 189, 248, 0.12); border-color: rgba(56, 189, 248, 0.25); }
+
+/* Expandable Deep-Dive Accordions */
+details.deep {
+  margin-top: 18px; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-md); overflow: hidden;
+}
+details.deep > summary {
+  cursor: pointer; padding: 16px 20px; font-weight: 750; font-size: 15.5px;
+  list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  background: var(--surface-2);
+}
+details.deep > summary::-webkit-details-marker { display: none; }
+details.deep > summary .sum-right {
+  display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); font-family: var(--font-mono);
+}
+details.deep > summary .plus {
+  width: 24px; height: 24px; border-radius: 6px; background: var(--surface);
+  display: grid; place-items: center; font-weight: 800; color: var(--accent); transition: transform 0.2s;
+}
+details.deep[open] > summary .plus { transform: rotate(45deg); }
+details.deep .deep-body { padding: 20px; border-top: 1px solid var(--border); }
+
+/* Data Tables */
+.table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); }
+table.data-tbl { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 680px; }
+.data-tbl th, .data-tbl td {
+  padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top;
+}
+.data-tbl th {
+  background: var(--surface-2); color: var(--muted); font-size: 12.5px;
+  font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+}
+.data-tbl tr:last-child td { border-bottom: none; }
+
+/* ==========================================================================
+   6. ANALOGY & BEFORE/AFTER (Section 01)
+   ========================================================================== */
+.analogy-box {
+  display: grid; grid-template-columns: 290px 1fr; border-radius: var(--radius-lg);
+  overflow: hidden; border: 1px solid var(--border); background: var(--surface); box-shadow: var(--shadow);
+}
+.analogy-side {
+  background: linear-gradient(160deg, rgba(20, 184, 166, 0.16), rgba(56, 189, 248, 0.08));
+  padding: 28px; border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; justify-content: space-between;
+}
+.analogy-side h3 { font-size: 21px; font-weight: 850; margin-bottom: 10px; }
+.analogy-side p { font-size: 14.5px; color: var(--text-2); }
+.analogy-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--border);
+}
+.analogy-cell { background: var(--surface); padding: 20px; }
+.analogy-cell .role-tag { font-size: 12px; font-weight: 700; color: var(--muted); display: block; margin-bottom: 4px; }
+.analogy-cell h4 { font-size: 16.5px; margin-bottom: 6px; }
+.analogy-cell p { font-size: 14px; color: var(--text-2); margin-bottom: 10px; }
+
+/* RED / FROZEN / GREEN Contract Cards */
+.contract-trio { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 20px; }
+.c-card {
+  background: var(--surface); border: 1px solid var(--border); border-top: 4px solid var(--c);
+  border-radius: var(--radius-md); padding: 22px; position: relative;
+}
+.c-card .step-badge {
+  font-family: var(--font-mono); font-size: 12px; font-weight: 800; color: var(--c);
+  display: inline-block; margin-bottom: 8px;
+}
+.c-card h4 { font-size: 18px; margin-bottom: 8px; }
+.c-card p { font-size: 14.5px; color: var(--text-2); margin-bottom: 12px; }
+.c-card .rule-box {
+  font-family: var(--font-mono); font-size: 12px; padding: 8px 10px;
+  border-radius: 8px; background: var(--bg-alt); color: var(--muted); border: 1px solid var(--border);
+}
+
+/* ==========================================================================
+   7. INTERACTIVE WORKFLOW SIMULATOR (Section 04)
+   ========================================================================== */
+.mode-tabs {
+  display: inline-flex; flex-wrap: wrap; gap: 6px; padding: 5px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 20px;
+}
+.mode-tab {
+  font: inherit; font-size: 14px; font-weight: 750; padding: 9px 16px;
+  border-radius: 8px; border: 0; background: transparent; color: var(--muted); cursor: pointer;
+  transition: all 0.18s;
+}
+.mode-tab:hover { color: var(--text); }
+.mode-tab[aria-selected="true"] {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #041014;
+}
+
+.wf-panel { display: none; }
+.wf-panel.active { display: block; }
+
+/* Strict 22-Stage Graph Grid */
+.strict-phases { display: grid; gap: 20px; }
+.phase-block {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px;
+}
+.phase-head {
+  display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;
+  margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border);
+}
+.phase-head h4 { font-size: 18px; display: flex; align-items: center; gap: 10px; }
+.stage-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px;
+}
+.st-node {
+  background: var(--bg-alt); border: 1px solid var(--border); border-radius: 10px;
+  padding: 12px 14px; display: flex; flex-direction: column; gap: 5px; position: relative;
+}
+.st-node.human-gate {
+  border-color: rgba(168, 85, 247, 0.55);
+  background: linear-gradient(180deg, rgba(168, 85, 247, 0.12), var(--bg-alt));
+}
+.st-node.strict-gate {
+  border-color: rgba(20, 184, 166, 0.55);
+  background: linear-gradient(180deg, rgba(20, 184, 166, 0.12), var(--bg-alt));
+}
+.st-node .st-num {
+  font-family: var(--font-mono); font-size: 11px; color: var(--muted);
+  display: flex; justify-content: space-between; align-items: center;
+}
+.st-node .st-id { font-family: var(--font-mono); font-size: 13px; font-weight: 800; color: var(--text); }
+.st-node .st-desc { font-size: 13px; color: var(--text-2); line-height: 1.45; }
+
+/* Legacy Size Filter */
+.legacy-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.size-btn {
+  font: inherit; font-size: 13.5px; font-weight: 750; padding: 7px 14px;
+  border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-2); cursor: pointer;
+}
+.size-btn[aria-pressed="true"] { background: var(--accent); color: #041014; border-color: var(--accent); }
+.st-node.skipped { opacity: 0.32; filter: grayscale(1); }
+
+/* ==========================================================================
+   8. PROVIDER CASE STUDIES & BAR CHARTS (Section 05 & 08)
+   ========================================================================== */
+.case-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 18px; }
+.case-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md);
+  padding: 22px; display: flex; flex-direction: column; gap: 12px;
+}
+.case-card .verdict-tag {
+  font-size: 11.5px; font-weight: 800; padding: 3px 9px; border-radius: 999px; width: fit-content;
+}
+.verdict-tag.pass { background: var(--success-soft); color: var(--success); }
+.verdict-tag.fail { background: var(--danger-soft); color: var(--danger); }
+.verdict-tag.expand { background: var(--gemini-bg); color: var(--gemini); }
+
+.metric-bars { display: grid; gap: 12px; }
+.m-bar { display: grid; grid-template-columns: 180px 1fr 68px; gap: 12px; align-items: center; font-size: 13.5px; }
+.m-bar .track { height: 12px; background: var(--bg-alt); border-radius: 999px; overflow: hidden; border: 1px solid var(--border); }
+.m-bar .fill { height: 100%; border-radius: 999px; background: var(--c, var(--accent)); }
+.m-bar .cnt { font-family: var(--font-mono); font-size: 12.5px; text-align: right; color: var(--text-2); }
+
+/* Code / Terminal Block */
+pre.codeblock {
+  background: #070a10; color: #e2e8f0; border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 12px; padding: 16px 18px; overflow-x: auto; font-size: 13px; line-height: 1.6; margin: 0;
+}
+pre.codeblock .cm { color: #64748b; }
+pre.codeblock .kw { color: #38bdf8; }
+pre.codeblock .ok { color: #10b981; }
+pre.codeblock .hl { color: #f59e0b; }
+
+/* ==========================================================================
+   9. PRESENTATION SLIDE MODE & SPEAKER NOTES
+   ========================================================================== */
+.speaker-note {
+  display: none; margin-top: 22px; padding: 14px 18px; border-radius: 12px;
+  background: rgba(245, 158, 11, 0.12); border: 1px dashed rgba(245, 158, 11, 0.45);
+  font-size: 14px; color: var(--text-2);
+}
+.speaker-note b { color: var(--amber); display: block; margin-bottom: 4px; font-size: 13px; text-transform: uppercase; }
+body.show-notes .speaker-note { display: block; }
+
+.pres-hud {
+  position: fixed; right: 20px; bottom: 20px; z-index: 200;
+  display: none; align-items: center; gap: 8px;
+  background: rgba(7, 11, 18, 0.92); color: #fff; border: 1px solid var(--border-strong);
+  padding: 8px 14px; border-radius: 999px; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  font-size: 13px; font-family: var(--font-mono);
+}
+.pres-hud button {
+  font: inherit; background: rgba(255, 255, 255, 0.12); color: #fff; border: 0;
+  width: 28px; height: 28px; border-radius: 50%; cursor: pointer;
+}
+.pres-hud button:hover { background: var(--accent); color: #041014; }
+html.present { scroll-snap-type: y proximity; }
+html.present .slide-sec {
+  scroll-snap-align: start; min-height: calc(100svh - 64px);
+  display: flex; flex-direction: column; justify-content: center;
+}
+html.present .pres-hud { display: flex; }
+
+/* Footer */
+footer.site-foot {
+  padding: 52px 0 64px; background: var(--bg-alt); border-top: 1px solid var(--border);
+  font-size: 13.5px; color: var(--muted);
+}
+
+/* Responsive */
+@media (max-width: 1040px) {
+  .hero-grid, .analogy-box, .g4, .g5, .case-tabs, .contract-trio { grid-template-columns: 1fr 1fr; }
+  .hero-grid, .analogy-box { grid-template-columns: 1fr; }
+  .analogy-side { border-right: 0; border-bottom: 1px solid var(--border); }
+  .metrics-strip { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 680px) {
+  section.sec { padding: 60px 0; }
+  .g2, .g3, .g4, .g5, .analogy-grid, .case-tabs, .contract-trio, .metrics-strip, .bp-workers { grid-template-columns: 1fr; }
+  .m-bar { grid-template-columns: 120px 1fr 54px; }
+}
+@media print {
+  .topbar, .pres-hud, .hero-actions { display: none !important; }
+  details.deep > :not(summary) { display: block !important; }
+  .wf-panel { display: block !important; margin-bottom: 24px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ===================== TOPBAR ===================== -->
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="#top">
+      <span class="brand-logo">H</span>
+      <span>Hermes Pipeline</span>
+      <span class="brand-sub">SPEC v5.3 · D-104</span>
+    </a>
+    <nav class="nav-scroll" aria-label="주요 섹션">
+      <a href="#overview">1분 요약</a>
+      <a href="#why">왜 만들었나</a>
+      <a href="#principles">설계 철칙</a>
+      <a href="#architecture">4계층 구조</a>
+      <a href="#workflow">작업 흐름</a>
+      <a href="#providers">AI 분업·진화</a>
+      <a href="#safety">증거 게이트</a>
+      <a href="#delegation">위임 구동</a>
+      <a href="#journey">완주 기록</a>
+      <a href="#lessons">시행착오 교훈</a>
+      <a href="#pilot">실제 적용 과제</a>
+      <a href="#glossary">Q&amp;A·용어</a>
+    </nav>
+    <div class="toolbar">
+      <button type="button" class="tool-btn" id="easyModeBtn" aria-pressed="false" title="어려운 코드·해시 설명을 접고 핵심 비유와 요약만 봅니다">💡 이지 모드</button>
+      <button type="button" class="tool-btn" id="notesBtn" aria-pressed="false" title="발표할 때 말할 핵심 포인트(발표자 노트)를 표시합니다">🎙️ 발표 노트</button>
+      <button type="button" class="tool-btn" id="presentBtn" aria-pressed="false" title="슬라이드 단위로 넘기며 발표합니다 (단축키 P, ← →)">▶ 슬라이드</button>
+      <button type="button" class="tool-btn" id="themeBtn" title="다크/라이트 테마 전환">☀️ 라이트</button>
+    </div>
+  </div>
+</header>
+
+<!-- ===================== HERO ===================== -->
+<section class="hero slide-sec" id="top">
+  <div class="container">
+    <div class="hero-grid">
+      <div>
+        <div class="status-banner">
+          <span class="pulse-dot"></span>
+          <span>2026-10-21 최신 기준 · 조각 1~4 main 통합 &amp; PC 자산 상태 API 리허설 최종 수용(ACCEPT: YES)</span>
+        </div>
+        <h1>혼자 코딩하는 AI가 아니라,<br><span class="hl">서로 검증하는 AI 개발팀</span>을<br>만들었습니다.</h1>
+        <p class="hero-lead">
+          <strong>Hermes</strong>를 지휘자(오케스트레이터)로 두고 <strong>Claude · Codex · Gemini · DeepSeek</strong> 4대 AI 공급사가 기획·명세·실패 테스트(TDD)·구현·교차 리뷰·최종 판정을 분업하는 자율 소프트웨어 개발 파이프라인입니다.
+        </p>
+        <div class="hero-actions">
+          <a class="btn-primary" href="#overview">한눈에 이해하기 ↓</a>
+          <a class="btn-secondary" href="#workflow">22단계 Strict 흐름 체험</a>
+          <a class="btn-secondary" href="#providers">AI 공급사 분업·극복기</a>
+        </div>
+        <div class="pitch-box">
+          <strong>🎯 이 프로젝트가 해결하려는 한 가지 질문</strong>
+          "사람이 프롬프트를 복사·중계하지 않으면서도, 어떻게 하면 단일 AI가 빠지기 쉬운 착각·거짓 보고·구독 한도 멈춤 없이 <strong>실제 업무에 쓸 수 있는 고신뢰 코드</strong>를 만들 수 있을까?"
+        </div>
+      </div>
+
+      <!-- Interactive System Blueprint -->
+      <div class="blueprint-card" aria-label="인터랙티브 4계층 아키텍처 다이어그램">
+        <div class="bp-header">
+          <span>● INTERACTIVE ARCHITECTURE BLUEPRINT</span>
+          <span>항목을 클릭해 역할을 확인하세요</span>
+        </div>
+        <div class="bp-nodes">
+          <div class="bp-tier active" data-bp="human">
+            <span class="tier-badge" style="background:var(--human-bg);color:var(--human);">TIER 1 · HUMAN</span>
+            <div>
+              <span class="tier-title">👤 사람 (IT 관리자 · 최종 결정권자)</span>
+              <span class="tier-sub">요구사항 정의 · 3대 승인/비준(SEQ1·5·9) · 최종 main 병합</span>
+            </div>
+            <span class="mono" style="font-size:12px;color:var(--muted);">직접 승인만</span>
+          </div>
+
+          <div class="bp-tier" data-bp="driver">
+            <span class="tier-badge" style="background:var(--claude-bg);color:var(--claude);">TIER 2 · DRIVER</span>
+            <div>
+              <span class="tier-title">🔄 복수 위임 구동자 (Claude Code ↔ Codex 교대)</span>
+              <span class="tier-sub">비대화형 실행 · 원장/보고서 감사 · 한도 도달 시 무중단 바통 터치</span>
+            </div>
+            <span class="mono" style="font-size:12px;color:var(--muted);">규칙 3.7</span>
+          </div>
+
+          <div class="bp-tier" data-bp="hermes">
+            <span class="tier-badge" style="background:var(--hermes-bg);color:var(--hermes);">TIER 3 · ENGINE</span>
+            <div>
+              <span class="tier-title">⚙️ Hermes 지휘자 + 결정론적 게이트 (Node·Python)</span>
+              <span class="tier-sub">22단계 상태 머신 · FD3 런타임 증거 수집 · SHA-256 해시/파일 보호</span>
+            </div>
+            <span class="mono" style="font-size:12px;color:var(--muted);">코드 작성 금지</span>
+          </div>
+
+          <div class="bp-workers">
+            <div class="bp-worker" data-bp="claude">
+              <span class="chip claude">Claude</span>
+              <b>기획·명세·판정</b>
+              <small>Opus 5.5 High<br>읽기 전용</small>
+            </div>
+            <div class="bp-worker" data-bp="deepseek">
+              <span class="chip deepseek">DeepSeek</span>
+              <b>TDD 테스트 작성</b>
+              <small>V4.1 Flash<br>tests/ 한정</small>
+            </div>
+            <div class="bp-worker" data-bp="codex">
+              <span class="chip codex">Codex</span>
+              <b>유일한 코드 구현</b>
+              <small>GPT-6.1-sol<br>Worktree 쓰기</small>
+            </div>
+            <div class="bp-worker" data-bp="gemini">
+              <span class="chip gemini">Gemini</span>
+              <b>보안·교차 리뷰</b>
+              <small>3.8 Flash<br>JSON 스키마</small>
+            </div>
+          </div>
+
+          <div class="bp-tier" data-bp="worktree">
+            <span class="tier-badge" style="background:var(--success-soft);color:var(--success);">TIER 4 · SANDBOX</span>
+            <div>
+              <span class="tier-title">🌿 격리된 Git Worktree &amp; 3단계 트랜잭션 커밋</span>
+              <span class="tier-sub">원본 저장소 오염 0% · 허용 목록(Allowlist) 감시 · 테스트 변조 차단</span>
+            </div>
+            <span class="mono" style="font-size:12px;color:var(--muted);">guard.js</span>
+          </div>
+        </div>
+
+        <div class="bp-inspector" id="bpInspector">
+          <strong>TIER 1 · 사람 (최종 결정권자)</strong>
+          일상적인 파일 전달·테스트 실행·교정 지시는 위임 구동자와 Hermes가 자동 처리합니다. 사람은 오직 ① 명세·수용기준 승인(SEQ1), ② 기반/업무 테스트 매핑 비준(SEQ5·SEQ9), ③ 수용 완료된 브랜치의 최종 병합(Merge)만 결정합니다.
+        </div>
+      </div>
+    </div>
+
+    <!-- Top 5 Real Metrics -->
+    <div class="metrics-strip">
+      <div class="metric-tile" style="--tile-color:var(--accent);">
+        <span class="val">SPEC v5.3</span>
+        <span class="lbl">정본 명세 기준선 (D-52 승인)</span>
+        <span class="sub">12개 정본 파일 · SHA-256 잠금</span>
+      </div>
+      <div class="metric-tile" style="--tile-color:var(--success);">
+        <span class="val">640 / 640</span>
+        <span class="lbl">파이프라인 자체 자동 테스트</span>
+        <span class="sub">Node 587 + Python 어댑터 53 통과</span>
+      </div>
+      <div class="metric-tile" style="--tile-color:var(--accent-2);">
+        <span class="val">4 조각 + 2 리허설</span>
+        <span class="lbl">전수 수용(ACCEPT: YES) 완주</span>
+        <span class="sub">pipeline main @ 2e9225c 활성화</span>
+      </div>
+      <div class="metric-tile" style="--tile-color:var(--human);">
+        <span class="val">4대 AI 공급사</span>
+        <span class="lbl">역할 분리 &amp; 교차 검증</span>
+        <span class="sub">Anthropic · OpenAI · Google · DeepSeek</span>
+      </div>
+      <div class="metric-tile" style="--tile-color:var(--amber);">
+        <span class="val">D-01 ~ D-104</span>
+        <span class="lbl">투명한 위임 결정 원장</span>
+        <span class="sub">모든 호출·실패·해시 100% 보존</span>
+      </div>
+    </div>
+
+    <div class="speaker-note">
+      <b>🎙️ 발표자 포인트 (도입부)</b>
+      "오늘 소개할 프로젝트는 단순한 AI 코딩 프롬프트 모음이 아닙니다. Claude, ChatGPT(Codex), Gemini, DeepSeek라는 서로 다른 회사의 AI들을 실제 소프트웨어 개발팀처럼 편성하고, AI가 거짓말하거나 실수하지 못하도록 Node.js와 Python으로 짠 기계적 증거 게이트가 매 단계를 감시하는 '자율 개발 파이프라인'입니다."
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 01. OVERVIEW (1분 요약 & 비유) ===================== -->
+<section class="sec slide-sec" id="overview">
+  <div class="container">
+    <div class="sec-header">
+      <span class="sec-kicker">01 / ONE-MINUTE OVERVIEW</span>
+      <h2>한마디로, "서로 다른 AI들로 꾸린 소프트웨어 개발팀"입니다</h2>
+      <p>개발을 전혀 모르는 분도 이해할 수 있도록 <strong>레스토랑 주방</strong>에 비유해 보겠습니다. 한 사람이 메뉴 개발부터 요리, 위생 검사까지 혼자 다 하면 실수를 걸러낼 수 없듯, AI도 역할을 철저히 나눴습니다.</p>
+    </div>
+
+    <div class="analogy-box">
+      <div class="analogy-side">
+        <div>
+          <span class="easy-badge">입문자용 핵심 요약</span>
+          <h3 style="margin-top:12px;">왜 AI를 여러 명 쓰나요?</h3>
+          <p>AI 한 명에게 "코드 짜고 테스트도 해봐"라고 시키면, <strong>자기가 잘못 이해한 내용 그대로 테스트를 짜서 100점이라고 보고</strong>합니다.</p>
+          <p style="margin:0;">그래서 <strong>문제 출제자(테스트 작성 AI)</strong>와 <strong>문제 풀이(코드 구현 AI)</strong>, <strong>채점관(리뷰·판정 AI)</strong>을 아예 다른 회사의 AI로 분리했습니다.</p>
+        </div>
+        <div class="mono" style="font-size:12px;color:var(--muted);">
+          작성자 ≠ 검토자 ≠ 판정자 원칙
+        </div>
+      </div>
+
+      <div class="analogy-grid">
+        <div class="analogy-cell">
+          <span class="role-tag">01 · 총괄 셰프 &amp; 지배인</span>
+          <h4>지휘자 (Hermes + 구동자)</h4>
+          <p>직접 요리(코딩)는 절대 하지 않습니다. 정해진 순서표대로 다음 담당자를 부르고, 재료와 결과물의 무게(해시값)가 정확한지 기계로 확인합니다.</p>
+          <span class="chip hermes">Hermes Engine</span>
+          <span class="chip claude">Driver 교대</span>
+        </div>
+        <div class="analogy-cell">
+          <span class="role-tag">02 · 레시피 설계자</span>
+          <h4>기획·설계·명세 담당</h4>
+          <p>사장님(사용자)의 요구를 듣고 어떤 기능을 만들지, 어떤 경우에 에러를 낼지 빈틈없는 설계도(<code>SPEC.md</code>)로 작성합니다.</p>
+          <span class="chip claude">Claude Opus / Sonnet 5.5</span>
+        </div>
+        <div class="analogy-cell">
+          <span class="role-tag">03 · 깐깐한 시식 기준표 작성자</span>
+          <h4>선행 실패 테스트(TDD) 담당</h4>
+          <p>요리가 나오기도 전에 <strong>"이 기준을 못 맞추면 불합격"</strong>이라는 자동 채점 프로그램(테스트 코드)을 먼저 만듭니다.</p>
+          <span class="chip deepseek">DeepSeek V4.1 Flash</span>
+          <span class="chip gemini">Gemini 3.8 Flash</span>
+        </div>
+        <div class="analogy-cell">
+          <span class="role-tag">04 · 유일한 메인 요리사</span>
+          <h4>제품 코드 구현 담당</h4>
+          <p>실제 제품 코드는 오직 이 담당자만 만질 수 있습니다. 단, 채점 기준표(<code>tests/</code>)는 절대 건드리지 못하도록 잠가 둡니다.</p>
+          <span class="chip codex">OpenAI Codex (GPT-6.1-sol)</span>
+        </div>
+        <div class="analogy-cell">
+          <span class="role-tag">05 · 외부 위생·품질 감사관</span>
+          <h4>독립·보안 교차 리뷰어</h4>
+          <p>요리사와 다른 회사의 AI들이 설계도대로 만들어졌는지, 보안 구멍은 없는지 원문 줄 번호를 인용(<code>QUOTE</code>)하며 감시합니다.</p>
+          <span class="chip gemini">Gemini 3.8 Flash</span>
+          <span class="chip codex">교차 리뷰</span>
+        </div>
+        <div class="analogy-cell">
+          <span class="role-tag">06 · 최종 대법관 &amp; 오너</span>
+          <h4>판정(Opus) &amp; 최종 승인(사람)</h4>
+          <p>최고 성능 모델이 리뷰 지적의 타당성을 판정(<code>PASS/FIX</code>)하고, 마지막에 사람이 확인 후 운영 브랜치에 병합합니다.</p>
+          <span class="chip claude">Opus 5.5 (High)</span>
+          <span class="chip human">사용자 본인</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="speaker-note">
+      <b>🎙️ 발표자 포인트 (1분 요약)</b>
+      "핵심은 '권력 분립'입니다. 코드를 짜는 AI(Codex)는 테스트를 못 고치고, 테스트를 짜는 AI(DeepSeek·Gemini)는 제품 코드를 못 고치며, 최종 판정(Claude Opus)과 승인(사람)은 모든 실행 증거가 맞을 때만 통과시킵니다."
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 02. WHY WE BUILT IT (문제의식과 5대 목표) ===================== -->
+<section class="sec alt slide-sec" id="why">
+  <div class="container">
+    <div class="sec-header">
+      <span class="sec-kicker">02 / MOTIVATION &amp; GOALS</span>
+      <h2>내가 무엇을 하고 싶었는가 — 기존 AI 개발의 4가지 한계</h2>
+      <p>사내 실무 시스템(약 1,000명 규모 PC 자산관리 웹앱)을 AI로 개발하려다 보니, 단순히 채팅창에 코드를 물어보는 방식으로는 넘을 수 없는 벽이 있었습니다.</p>
+    </div>
+
+    <div class="grid g2">
+      <div class="card">
+        <h4>① "AI 중계 노동"에서 벗어나고 싶었습니다</h4>
+        <p>초기에는 사람이 직접 AI에게 설계를 시키고, 그 결과를 복사해 다른 AI에게 리뷰를 시키고, 에러 로그를 다시 붙여넣는 <strong>수동 중계 작업</strong>이 단계의 대부분을 차지했습니다. 사람이 자리를 비우거나 노트북을 덮어도 서버(Mac)에서 알아서 다음 단계로 넘어가고, 멈춘 지점부터 이어 달리는(<code>--resume</code>) 자동화가 필요했습니다.</p>
+      </div>
+      <div class="card">
+        <h4>② 한 모델의 "착각 공유"와 "거짓 완료"를 막고 싶었습니다</h4>
+        <p>한 AI가 코드와 테스트를 함께 짜면 요구사항을 잘못 읽은 부분까지 똑같이 통과합니다. 심지어 설정 오류나 오타 때문에 테스트가 아예 돌지도 않았는데 <em>"실패 테스트(RED) 확인 완료!"</em>라고 보고하는 일도 벌어졌습니다. <strong>기계적인 런타임 증거</strong> 없이는 AI의 말을 믿지 않는 구조가 필요했습니다.</p>
+      </div>
+      <div class="card">
+        <h4>③ 특정 AI 구독 한도(Quota)에 발목 잡히지 않고 싶었습니다</h4>
+        <p>Claude Code와 Codex(ChatGPT)에 작업이 몰리면 5시간 사용 한도에 걸려 개발 전체가 멈춥니다(실제로 조각 2에서 4번 정지). 반면 같은 시점 Google Gemini 한도는 100% 남아 있었습니다. 여러 AI 공급사로 역할을 분산하고, 구동자조차 교대할 수 있어야 했습니다.</p>
+      </div>
+      <div class="card">
+        <h4>④ 매달 진화하는 새 AI 모델을 즉시 실측·투입하고 싶었습니다</h4>
+        <p>DeepSeek V4.1 Flash, Gemini 3.8 Flash, GLM 5.3, Qwen 3.8 Max, Xiaomi MiMo V2.6 Pro 등 새 모델이 쏟아집니다. 소문이나 벤치마크 점수만 믿고 넣는 대신, <strong>동일한 기준 과제로 정량 평가해 통과한 모델만 적재적소에 배치하는 구조</strong>를 원했습니다.</p>
+      </div>
+    </div>
+
+    <h3 class="sub-title">그렇게 세운 파이프라인 5대 목표 (`Docs/2026-09-29-hermes-multi-agent-pipeline-design.md`)</h3>
+    <div class="grid g5">
+      <div class="card" style="border-top:3px solid var(--accent);">
+        <span class="mono" style="font-size:12px;color:var(--accent);">GOAL 01</span>
+        <h4 style="margin-top:6px;">최적 비용</h4>
+        <p style="font-size:14px;">품질 타협 없이 작업당 총비용(재시도·리뷰 포함)을 최적화하고, API 환산액과 구독 배분액을 분리 계측합니다.</p>
+      </div>
+      <div class="card" style="border-top:3px solid var(--success);">
+        <span class="mono" style="font-size:12px;color:var(--success);">GOAL 02</span>
+        <h4 style="margin-top:6px;">최고 품질</h4>
+        <p style="font-size:14px;">TDD 선행 실패 강제, 타사 모델 교차 리뷰, FD3 런타임 증거 게이트, Opus 최고 추론 판정으로 결함을 걸러냅니다.</p>
+      </div>
+      <div class="card" style="border-top:3px solid var(--accent-2);">
+        <span class="mono" style="font-size:12px;color:var(--accent-2);">GOAL 03</span>
+        <h4 style="margin-top:6px;">전 과정 자동화</h4>
+        <p style="font-size:14px;">요구사항 접수부터 설계·명세·테스트·구현·리뷰·수정 루프·커밋·보고서까지 파일 기반으로 자동 실행합니다.</p>
+      </div>
+      <div class="card" style="border-top:3px solid var(--human);">
+        <span class="mono" style="font-size:12px;color:var(--human);">GOAL 04</span>
+        <h4 style="margin-top:6px;">다중 공급사 활용</h4>
+        <p style="font-size:14px;">Anthropic, OpenAI, Google, DeepSeek의 강점을 조합해 사용량 병목을 깨고 독립적 시각을 확보합니다.</p>
+      </div>
+      <div class="card" style="border-top:3px solid var(--amber);">
+        <span class="mono" style="font-size:12px;color:var(--amber);">GOAL 05</span>
+        <h4 style="margin-top:6px;">AI 환경 지속 반영</h4>
+        <p style="font-size:14px;">설정 파일(<code>roles.json</code>)과 격리 평가 하네스를 통해 신규 모델과 추론(effort) 정책을 검증 후 즉시 반영합니다.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 03. CORE PRINCIPLES & TDD CONTRACT ===================== -->
+<section class="sec slide-sec" id="principles">
+  <div class="container">
+    <div class="sec-header">
+      <span class="sec-kicker">03 / DESIGN PRINCIPLES &amp; TDD CONTRACT</span>
+      <h2>타협하지 않는 6대 설계 철칙과 RED · FROZEN · GREEN 계약</h2>
+      <p>프롬프트로 "잘 좀 해줘"라고 부탁하는 대신, <strong>어기면 파이프라인이 즉시 멈추는(Fail-Closed) 기계적 규칙</strong>으로 설계했습니다.</p>
+    </div>
+
+    <div class="contract-trio">
+      <div class="c-card" style="--c:var(--danger);">
+        <span class="step-badge">STEP 01 · VALID RED</span>
+        <h4>구현 전엔 반드시 "올바른 이유"로 실패해야 한다</h4>
+        <p>제품 코드가 아직 없으므로 비즈니스 테스트는 실패해야 합니다. 단, 오타나 <code>ImportError</code>로 죽은 가짜 실패는 거부합니다. <strong>테스트 본문(<code>body</code>)에 진입해 <code>AssertionError</code>(예: 200 기대 vs 404 응답)로 실패한 것만 진짜 RED로 인정</strong>합니다.</p>
+        <div class="rule-box">rawTestExit = 1 &amp;&amp; gateExit = 0 (assertion_failure 필수)</div>
+      </div>
+
+      <div class="c-card" style="--c:var(--accent-2);">
+        <span class="step-badge">STEP 02 · FROZEN MANIFEST</span>
+        <h4>비준된 테스트와 해시는 구현 중 절대 바꿀 수 없다</h4>
+        <p>테스트가 작성되면 수용 기준(<code>F01~F03</code>, <code>B01~B06</code>)과 테스트 ID 매핑을 사람이 비준(Ratify)하여 SHA-256 해시로 얼립니다. 제품 코드를 짜는 Codex가 테스트를 살짝 고쳐서 통과시키려 하면 <code>guard no-test-change</code>가 즉시 적발해 원상 복구합니다.</p>
+        <div class="rule-box">foundationManifestHash / businessManifestHash 동결</div>
+      </div>
+
+      <div class="c-card" style="--c:var(--success);">
+        <span class="step-badge">STEP 03 · DETERMINISTIC GREEN</span>
+        <h4>모든 테스트 통과 + AST 린트 + 2회 동일 빌드</h4>
+        <p>구현이 끝나면 동결된 기반·비즈니스 테스트가 100% 통과해야 하고, <code>demo-lint.py</code>(AST 정적 검사)와 <code>demo-build.py</code>(2회 연속 빌드 시 바이트 단위 SHA-256 완전 일치)를 모두 통과해야만 리뷰 단계로 넘어갑니다.</p>
+        <div class="rule-box">pass == discovered &amp;&amp; buildHash1 === buildHash2</div>
+      </div>
+    </div>
+
+    <div class="grid g3" style="margin-top:20px;">
+      <div class="card">
+        <h4>🔒 권한 우회 옵션 코드 레벨 원천 차단</h4>
+        <p><code>--dangerously-skip-permissions</code>, <code>--yolo</code>, <code>bypassPermissions</code>, <code>--no-sandbox</code> 같은 위험 플래그는 <code>lib/command.js</code>의 <code>FORBIDDEN</code> 정규식이 실행 전에 차단합니다.</p>
+      </div>
+      <div class="card">
+        <h4>🚫 조용한 자동 전환(Silent Fallback) 금지</h4>
+        <p>1순위 AI가 사용 한도나 오류로 멈췄을 때 몰래 2순위 모델로 넘어가면 독립성과 비용 추적이 깨집니다. 반드시 <code>exit 5</code>(승인 대기)로 멈추고 승인된 규칙으로만 교체합니다.</p>
+      </div>
+      <div class="card">
+        <h4>📁 100% 파일·해시 기반 인계 (외부 의존성 0개)</h4>
+        <p>Node.js 표준 모듈만 사용하여 공급망 공격 위험이 없으며, 모든 단계 인계는 디스크의 JSON/MD 파일과 SHA-256 해시로만 이루어져 언제든 재개 가능합니다.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 04. 4-TIER ARCHITECTURE & CODE MAP ===================== -->
+<section class="sec alt slide-sec" id="architecture">
+  <div class="container">
+    <div class="sec-header">
+      <span class="sec-kicker">04 / SYSTEM ARCHITECTURE</span>
+      <h2>4계층 거버넌스와 파이프라인 엔진 내부 구조</h2>
+      <p>지시는 위에서 아래로 내려가고, 암호학적 해시와 런타임 증거는 아래에서 위로 올라옵니다.</p>
+    </div>
+
+    <div class="grid g2">
+      <div class="card">
+        <h3>왜 4계층으로 분리했나요?</h3>
+        <p style="margin-bottom:14px;">처음에는 사람이 직접 Hermes TUI에 명령을 입력했습니다. 하지만 엄격 검증 단계가 정교해질수록 중간 점검과 해시 확인 횟수가 늘어났고, 이를 해결하기 위해 <strong>사람과 Hermes 사이에 '위임 구동자(Driver)' 계층</strong>을 추가했습니다.</p>
+        <ul style="color:var(--text-2);font-size:14.5px;display:grid;gap:10px;">
+          <li><strong>1계층 — 사용자 (Human):</strong> 요구사항·정책 확정, 핵심 3대 승인/비준(<code>SEQ1</code>·<code>SEQ5</code>·<code>SEQ9</code>), 최종 브랜치 병합.</li>
+          <li><strong>2계층 — 위임 구동자 (Claude Code ↔ Codex):</strong> <code>driver/run-hermes.sh</code>로 비대화형 세션을 띄우고, 완료 후 원장·보고서·보호 매니페스트(17개 핵심 파일 해시)를 감사하며 다음 배치를 지시.</li>
+          <li><strong>3계층 — 지휘자 &amp; 기계 게이트 (Hermes + <code>pipeline/</code>):</strong> <code>bin/state</code>, <code>bin/guard</code>, <code>bin/checks</code>를 호출해 단계 전이와 증거 봉투를 검증.</li>
+          <li><strong>4계층 — 역할별 AI 작업자 (Workers):</strong> 격리된 <code>worktrees/</code> 안에서 부여된 최소 권한으로만 문서·테스트·코드를 작성하거나 리뷰.</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h3>워크스페이스 디렉터리 구조 (`/Volumes/SSD_1TB/Projects_Hermes`)</h3>
+        <pre class="codeblock"><span class="hl">Projects_Hermes/</span>
+├── <span class="kw">pipeline/</span>            <span class="cm"># 지휘 도구 정본 Git 저장소 (main @ 2e9225c)</span>
+│   ├── bin/             <span class="cm"># 13개 CLI 실행기 (agent-run, state, checks, guard...)</span>
+│   ├── lib/             <span class="cm"># 14개 코어 모듈 (state.js, evidence-gate.js...)</span>
+│   ├── adapters/        <span class="cm"># Python/Django FD3 런타임 증거 계측 어댑터</span>
+│   ├── schema/          <span class="cm"># JSON Schema Draft 2020-12 (evidence, review-output)</span>
+│   ├── prompts/         <span class="cm"># 단계별 프롬프트 템플릿 (plan, spec, tests, judge...)</span>
+│   ├── skill/SKILL.md   <span class="cm"># Hermes 전용 dev-pipeline 오케스트레이션 스킬</span>
+│   └── tests/           <span class="cm"># 640개 자동화 테스트 (Node 587 + Python 53)</span>
+├── <span class="kw">Docs/</span>                <span class="cm"># 설계서, SPEC-v5, 위임 규칙, 결정 원장(D-01~D-104)</span>
+├── <span class="kw">driver/</span>              <span class="cm"># 비대화형 구동 스크립트 &amp; protected-manifest.json</span>
+├── <span class="kw">projects/</span>            <span class="cm"># 대상 프로젝트 (pc-asset-management, 리허설 등 6개)</span>
+└── <span class="kw">worktrees/</span>           <span class="cm"># 98개 격리 실행 Worktree 및 실측 평가 아카이브</span></pre>
+      </div>
+    </div>
+
+    <details class="deep deep-only" open>
+      <summary>
+        <span>🔍 발표·기술 심층 자료: `pipeline/lib/` 및 `adapters/` 12대 핵심 모듈 상세 책임표</span>
+        <span class="sum-right"><span>외부 npm 의존성 0개 · 순수 Node.js &amp; Python 3.12</span><span class="plus">+</span></span>
+      </summary>
+      <div class="deep-body">
+        <div class="table-wrap">
+          <table class="data-tbl">
+            <thead>
+              <tr>
+                <th>모듈 경로</th>
+                <th>크기 / 언어</th>
+                <th>핵심 역할 및 기술적 특징</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>lib/state.js</code></td>
+                <td>57 KB · Node.js</td>
+                <td>22단계 Strict 상태 그래프(<code>GRAPH</code>), 원자적 잠금(<code>state.lock</code> + <code>fsync</code>), 추가 전용 원장(<code>state-history.jsonl</code>), 16종 이벤트 무효화 행렬(<code>EFFECTS</code>), 3단계 Git 커밋 트랜잭션(<code>intent</code>/<code>exec</code>/<code>readback</code>) 및 크래시 복구(<code>reconcileCommit</code>)</td>
+              </tr>
+              <tr>
+                <td><code>lib/checks.js</code></td>
+                <td>33 KB · Node.js</td>
+                <td>Nonce 재사용 방지 원장(<code>nonce-ledger.jsonl</code>), 인터프리터 심볼릭 링크 체인 및 바이너리 SHA-256 대조, 어댑터 가림(<code>ADAPTER_SHADOWED</code>) 전수 차단, FD3 스트림 수집 및 증거 봉투 조립</td>
+              </tr>
+              <tr>
+                <td><code>lib/evidence-gate.js</code></td>
+                <td>16 KB · Node.js</td>
+                <td>스키마 검증·시맨틱 검증·바인딩 비교·매니페스트 대조 결과를 종합해 <strong>18단계 우선순위(<code>RANKS</code> 1~18)</strong>로 단일 거부 사유와 종료 코드(<code>0</code>/<code>1</code>/<code>4</code>/<code>130</code>)를 판정</td>
+              </tr>
+              <tr>
+                <td><code>lib/semantic-validator.js</code></td>
+                <td>15 KB · Node.js</td>
+                <td>FD3 이벤트 시퀀스 연속성, 타임스탬프 단조 증가, 라이프사이클 8단계 순서, <code>hook_witness</code>와 예외 발생 지점(<code>originLinkage</code>) 정합성, 서브테스트 깊이(depth 1 제한) 및 카운트 합산 검증</td>
+              </tr>
+              <tr>
+                <td><code>lib/guard.js</code></td>
+                <td>15 KB · Node.js</td>
+                <td><code>GIT_OPTIONAL_LOCKS=0</code> 기반 Worktree 파일 모드·권한·심볼릭 링크·SHA-256 스냅샷, 허용 목록(<code>allowlistViolations</code>) 감시, 테스트 수정 차단(<code>no-test-change</code>), Git 훅 변조 탐지</td>
+              </tr>
+              <tr>
+                <td><code>lib/command.js</code> &amp; <code>extract.js</code></td>
+                <td>11 KB · Node.js</td>
+                <td><code>claude</code>(<code>CLAUDE_LEAN</code>으로 기본 프롬프트 60K→12K 절감), <code>codex</code>, <code>agy</code>(<code>--json-schema</code> 강제 및 마크다운 변환) 명령줄 생성 및 금지 플래그 차단</td>
+              </tr>
+              <tr>
+                <td><code>lib/telemetry.js</code></td>
+                <td>7 KB · Node.js</td>
+                <td>요청 모델(<code>requestedModel</code>)과 실제 관측 모델(<code>observedModels</code>) 분리 기록, 토큰 사용량 추출, API 환산 비용과 구독 배분액 분리 집계</td>
+              </tr>
+              <tr>
+                <td><code>adapters/hermes_evidence/</code></td>
+                <td>34 KB · Python 3.12</td>
+                <td>Django <code>DiscoverRunner</code> 및 <code>unittest.TestCase</code>의 <code>_callTestMethod</code>/<code>_callSetUp</code>/<code>subTest</code>를 계측하고 <code>RestoreGuard</code>로 복원. 실제 테스트 본문 진입(<code>case_body_start</code>)과 단언 실패를 FD3 NDJSON으로 송출</td>
+              </tr>
+              <tr>
+                <td><code>bin/demo-lint.py</code> &amp; <code>demo-build.py</code></td>
+                <td>14 KB · Python 3.12</td>
+                <td><code>demo/settings.py</code>의 9개 허용 상수 외 모든 import/함수/분기/환경변수 접근을 차단하는 AST 정적 분석기 및 결정론적 POSIX ustar 아카이브(<code>dist/demo.tar</code>) 빌더</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </details>
+  </div>
+</section>
+
+<!-- ===================== 05. INTERACTIVE WORKFLOW SIMULATOR ===================== -->
+<section class="sec slide-sec" id="workflow">
+  <div class="container">
+    <div class="sec-header">
+      <span class="sec-kicker">05 / INTERACTIVE WORKFLOW SIMULATOR</span>
+      <h2>요구사항 하나가 안전한 커밋이 되기까지</h2>
+      <p>발표 대상이나 궁금한 깊이에 맞춰 아래 <strong>3가지 탭</strong>을 전환해 보세요. 입문자용 5단계 요약부터 <code>SPEC-v5.3</code>의 22단계 Strict 그래프, 그리고 작업 크기별(L/M/S) Legacy 흐름까지 모두 담았습니다.</p>
+    </div>
+
+    <div class="mode-tabs" role="tablist" aria-label="워크플로우 보기 모드">
+      <button type="button" class="mode-tab" role="tab" aria-selected="true" data-wf="summary">① 입문자용 5단계 핵심 흐름</button>
+      <button type="button" class="mode-tab" role="tab" aria-selected="false" data-wf="strict">② Strict 신규 프로젝트 22단계 (SPEC-v5.3 정본)</button>
+      <button type="button" class="mode-tab" role="tab" aria-selected="false" data-wf="legacy">③ Legacy 작업 크기별 흐름 (L / M / S 비교)</button>
+    </div>
+
+    <!-- Panel 1: 5-Step Summary -->
+    <div class="wf-panel active" id="wf-summary">
+      <div class="grid g5">
+        <div class="card" style="border-top:4px solid var(--claude);">
+          <span class="mono" style="font-size:12px;color:var(--claude);">PHASE 01 · 설계와 승인</span>
+          <h4 style="margin-top:6px;">무엇을 만들지 계약서 작성</h4>
+          <p style="font-size:14px;">Claude가 요구사항을 분석해 <code>TASK.md</code>, <code>DESIGN.md</code>, <code>SPEC.md</code>를 작성하고, Codex와 Gemini가 빈틈을 리뷰합니다. 사람이 최종 계약 해시를 승인(<code>SEQ1</code>)합니다.</p>
+        </div>
+        <div class="card" style="border-top:4px solid var(--success);">
+          <span class="mono" style="font-size:12px;color:var(--success);">PHASE 02 · 기반(Foundation)</span>
+          <h4 style="margin-top:6px;">빈집에 전기·수도 먼저 깔기</h4>
+          <p style="font-size:14px;">신규 프로젝트에서 설정이나 DB 연결이 안 돼 테스트가 죽는 일을 막기 위해, 최소 부트스트랩과 기반 테스트(<code>F01~F03</code>)를 먼저 만들고 100% 통과시킵니다.</p>
+        </div>
+        <div class="card" style="border-top:4px solid var(--deepseek);">
+          <span class="mono" style="font-size:12px;color:var(--deepseek);">PHASE 03 · 비즈니스 RED</span>
+          <h4 style="margin-top:6px;">실패하는 채점표 먼저 동결</h4>
+          <p style="font-size:14px;">DeepSeek/Gemini가 업무 수용 기준(<code>B01~B06</code>) 테스트를 작성합니다. 사람이 매핑을 비준(<code>SEQ9</code>)한 뒤, 테스트가 본문 단언 실패(RED)인지 기계로 확인하고 커밋합니다.</p>
+        </div>
+        <div class="card" style="border-top:4px solid var(--codex);">
+          <span class="mono" style="font-size:12px;color:var(--codex);">PHASE 04 · 구현과 GREEN</span>
+          <h4 style="margin-top:6px;">테스트 수정 없이 코드 완성</h4>
+          <p style="font-size:14px;">유일한 작성자인 Codex가 제품 코드를 구현합니다. 테스트 파일 변경이 0바이트인지 확인한 뒤, 모든 테스트(F+B) 통과·AST 린트·결정론적 빌드를 검증합니다.</p>
+        </div>
+        <div class="card" style="border-top:4px solid var(--human);">
+          <span class="mono" style="font-size:12px;color:var(--human);">PHASE 05 · 교차 리뷰·수용</span>
+          <h4 style="margin-top:6px;">3사 교차 감사 후 최종 커밋</h4>
+          <p style="font-size:14px;">구현 리뷰·보안 리뷰(Gemini)를 거쳐 Claude Opus(High)가 <code>VERDICT: PASS</code>와 <code>ACCEPT: YES</code>를 판정하면 3단계 트랜잭션으로 커밋하고 사람이 병합합니다.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Panel 2: Strict 22-Stage Graph -->
+    <div class="wf-panel" id="wf-strict">
+      <div class="strict-phases">
+        <div class="phase-block">
+          <div class="phase-head">
+            <h4><span class="chip human">구간 A · 계약 및 기반(Foundation) 확립</span> Stage 01 ~ Stage 10</h4>
+            <span class="mono" style="font-size:12.5px;color:var(--muted);">기반 설정·인메모리 SQLite·URLconf가 정상임을 먼저 증명하고 첫 마일스톤 커밋</span>
+          </div>
+          <div class="stage-grid">
+            <div class="st-node human-gate">
+              <div class="st-num"><span>STAGE 01</span><span class="chip human">SEQ1 본인 승인</span></div>
+              <div class="st-id">spec-approved</div>
+              <div class="st-desc">6대 해시(명세·수용·설정·허용목록·명령·환경잠금) 결속 및 사용자 원문 증거 기록</div>
+            </div>
+            <div class="st-node">
+              <div class="st-num"><span>STAGE 02</span><span class="chip script">state identity</span></div>
+              <div class="st-id">worktree-prepared</div>
+              <div class="st-desc">격리 Git Worktree 생성, <code>identity.json</code> 고정 및 초기 스냅샷(baseline) 저장</div>
+            </div>
+            <div class="st-node">
+              <div class="st-num"><span>STAGE 03</span><span class="chip codex">Codex write</span></div>
+              <div class="st-id">bootstrap-write</div>
+              <div class="st-desc">허용된 4개 기반 파일(<code>manage.py</code>, <code>settings.py</code> 등)만 작성 및 allowlist 검증</div>
+            </div>
+            <div class="st-node">
+              <div class="st-num"><span>STAGE 04</span><span class="chip deepseek">DeepSeek / Gemini</span></div>
+              <div class="st-id">foundation-tests-write</div>
+              <div class="st-desc">기반 수용 기준(<code>F01~F03</code>) 테스트 작성 및 <code>outside-unchanged</code> 보호 검증</div>
+            </div>
+            <div class="st-node human-gate">
+              <div class="st-num"><span>STAGE 05</span><span class="chip human">SEQ5 본인 비준</span></div>
+              <div class="st-id">foundation-manifest-ratify</div>
+              <div class="st-desc">3석 매핑 리뷰 + Opus 판정 통과 후 사람이 직접 비준해 <code>foundationManifestHash</code> 동결</div>
+            </div>
+            <div class="st-node strict-gate">
+              <div class="st-num"><span>STAGE 06</span><span class="chip script">FD3 + Gate</span></div>
+              <div class="st-id">foundation-checks</div>
+              <div class="st-desc">신규 Nonce 발행, FD3 런타임 증거 수집, <code>F01~F03</code> 3/3 PASS + 린트/빌드 0 검증</div>
+            </div>
+            <div class="st-node">
+              <div class="st-num"><span>STAGE 07</span><span class="chip codex">교차 리뷰</span></div>
+              <div class="st-id">foundation-review-impl</div>
+              <div class="st-desc">기반 코드·테스트 정확성 리뷰 및 <code>QUOTE</code> 원문 대조</div>
+            </div>
+            <div class="st-node">
+              <div class="st-num"><span>STAGE 08</span><span class="chip gemini">Gemini 3.8 Flash</span></div>
+              <div class="st-id">foundation-review-sec</div>
+              <div class="st-desc">기반 설정·환경변수·DB 경계 보안 리뷰</div>
+            </div>
+            <div class="st-node">
+              <div class="st-num"><span>STAGE 09</span><span class="chip claude">Opus 5.5 High</span></div>
+              <div class="st-id">foundation-judge</div>
+              <div class="st-desc">기반 리뷰 종합 판정 (<code>VERDICT: PASS</code> 필수, <code>FIX</code> 시 교정 루프)</div>
+            </div>
+            <div class="st-node strict-gate">
+              <div class="st-num"><span>STAGE 10</span><span class="chip script">3-Phase Commit</span></div>
+              <div class="st-id">foundation-commit</div>
+              <div class="st-desc"><code>commit-intent</code> → <code>commit-exec</code> → <code>commit-readback</code>으로 제1 마일스톤 커밋</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="phase-block">
+          <div class="phase-head">
+            <h4><span class="chip strict-gate" style="color:var(--accent);background:var(--accent-glow);">구간 B · 비즈니스 TDD (Valid RED → GREEN → 최종 수용)</span> Stage 11 ~ Stage 22</h4>
+            <span class="mono" style="font-size:12.5px;color:var(--muted);">동결된 기반 위에서 업무 테스트 선행 실패 확인 후 제품 코드 구현 및 최종 수용</span>
+          </div>
+          <div class="stage-grid">
+            <div class="st-node">
+              <div class="st-num"><span>STAGE 11</span><span class="chip deepseek">DeepSeek / Gemini</span></div>
+              <div class="st-id">business-tests-write</div>
+              <div class="st-desc">업무 수용 기준(<code>B01~B06</code>) 검증 테스트 작성 (기반 파일·제품 코드 변경 금지)</div>
+            </div>
+            <div class="st-node human-gate">
+              <div class="st-num"><span>STAGE 12</span><span class="chip human">SEQ9 본인 비준</span></div>
+              <div class="st-id">business-manifest-ratify</div>
+              <div class="st-desc">동결된 기반 해시와 사슬로 묶어 매핑 심사 후 사람이 <code>businessManifestHash</code> 비준</div>
+            </div>
+            <div class="st-node strict-gate">
+              <div class="st-num"><span>STAGE 13</span><span class="chip script">Valid RED Gate</span></div>
+              <div class="st-id">business-red</div>
+              <div class="st-desc">기반(F)은 모두 PASS, 비즈니스(B)는 모두 본문 <code>assertion_failure</code>로 실패 확인(<code>gateExit=0</code>)</div>
+            </div>
+            <div class="st-node strict-gate">
+              <div class="st-num"><span>STAGE 14</span><span class="chip script">3-Phase Commit</span></div>
+              <div class="st-id">business-tests-commit</div>
+              <div class="st-desc">검증된 RED 테스트만 선행 커밋(제2 마일스톤) 및 테스트 스냅샷 고정</div>
+            </div>
+            <div class="st-node">
+              <div class="st-num"><span>STAGE 15</span><span class="chip codex">Codex 단독</span></div>
+              <div class="st-id">business-implement</div>
+              <div class="st-desc">제품 코드(<code>demo/views.py</code>, <code>urls.py</code>) 구현 및 <code>guard no-test-change</code> 검증</div>
+            </div>
+            <div class="st-node strict-gate">
+              <div class="st-num"><span>STAGE 16</span><span class="chip script">Full GREEN Gate</span></div>
+              <div class="st-id">business-green</div>
+              <div class="st-desc">전체 테스트(F+B) 100% PASS + <code>demo-lint</code> 0 + <code>demo-build</code> 2회 해시 일치 검증</div>
+            </div>
+            <div class="st-node">
+              <div class="st-num"><span>STAGE 17</span><span class="chip codex">Codex / Gemini</span></div>
+              <div class="st-id">impl-review</div>
+              <div class="st-desc">명세 조항별 구현 정확성 및 독립 교차 리뷰 (원문 <code>QUOTE</code> 검증)</div>
+            </div>
+            <div class="st-node">
+              <div class="st-num"><span>STAGE 18</span><span class="chip gemini">Gemini 3.8 Flash</span></div>
+              <div class="st-id">sec-review</div>
+              <div class="st-desc">입력 검증·부작용 금지·에러 노출·엣지 케이스 보안 리뷰</div>
+            </div>
+            <div class="st-node">
+              <div class="st-num"><span>STAGE 19</span><span class="chip claude">Opus 5.5 High</span></div>
+              <div class="st-id">judge</div>
+              <div class="st-desc">구현·보안 리뷰 종합 판정 (<code>VERDICT: PASS</code> 또는 <code>FIX</code> 루프)</div>
+            </div>
+            <div class="st-node">
+              <div class="st-num"><span>STAGE 20</span><span class="chip claude">Opus 5.5 High</span></div>
+              <div class="st-id">accept</div>
+              <div class="st-desc">전 단계 증거·비준·커밋 영수증·회계 원장 완결성 최종 심사 (<code>ACCEPT: YES</code>)</div>
+            </div>
+            <div class="st-node strict-gate">
+              <div class="st-num"><span>STAGE 21</span><span class="chip script">3-Phase Commit</span></div>
+              <div class="st-id">product-commit</div>
+              <div class="st-desc">최종 제품 코드 3단계 트랜잭션 커밋(제3 마일스톤) 및 영수증 검증</div>
+            </div>
+            <div class="st-node">
+              <div class="st-num"><span>STAGE 22</span><span class="chip hermes">Hermes + Cost</span></div>
+              <div class="st-id">report</div>
+              <div class="st-desc"><code>report.md</code> 및 <code>cost.json</code> 발행 → 사용자 검토 후 <code>main</code> 병합 대기</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Panel 3: Legacy S/M/L Flow -->
+    <div class="wf-panel" id="wf-legacy">
+      <div class="legacy-controls">
+        <span style="font-weight:700;font-size:14px;">작업 크기 선택:</span>
+        <button type="button" class="size-btn" data-size="L" aria-pressed="true">L (대규모 · 아키텍처/신규 모듈 · 15단계 전체)</button>
+        <button type="button" class="size-btn" data-size="M" aria-pressed="false">M (중규모 · 일반 기능/버그 수정 · 설계/사전승인 생략)</button>
+        <button type="button" class="size-btn" data-size="S" aria-pressed="false">S (소규모 · 1~2파일 국소 변경 · SPEC 생략 빠른 트랙)</button>
+      </div>
+      <div class="stage-grid" id="legacyGrid">
+        <div class="st-node" data-sizes="L,M,S"><div class="st-num"><span>00</span><span class="chip hermes">Hermes</span></div><div class="st-id">Intake &amp; 분류</div><div class="st-desc">작업 크기(S/M/L) 판정 및 <code>state.json</code> 초기화</div></div>
+        <div class="st-node" data-sizes="L,M,S"><div class="st-num"><span>01</span><span class="chip claude">Opus/Sonnet</span></div><div class="st-id">Plan (TASK.md)</div><div class="st-desc">범위·수용기준 정의 (S는 지휘자 직접 작성)</div></div>
+        <div class="st-node" data-sizes="L"><div class="st-num"><span>02</span><span class="chip claude">Opus 5.5</span></div><div class="st-id">Design (DESIGN.md)</div><div class="st-desc">L 전용 아키텍처·컴포넌트 경계 설계</div></div>
+        <div class="st-node" data-sizes="L,M"><div class="st-num"><span>03</span><span class="chip claude">Opus/Sonnet</span></div><div class="st-id">Spec (SPEC.md)</div><div class="st-desc">파일·시그니처·에러·테스트케이스 상세 명세</div></div>
+        <div class="st-node" data-sizes="L,M"><div class="st-num"><span>04</span><span class="chip codex">Codex + Gemini</span></div><div class="st-id">Spec Review</div><div class="st-desc">명세 모순·누락 독립 교차 검토</div></div>
+        <div class="st-node human-gate" data-sizes="L"><div class="st-num"><span>04a</span><span class="chip human">사용자 승인</span></div><div class="st-id">Human Gate</div><div class="st-desc">L 작업 코드 작성 전 사람 승인</div></div>
+        <div class="st-node" data-sizes="L,M,S"><div class="st-num"><span>05</span><span class="chip deepseek">DeepSeek / Gemini</span></div><div class="st-id">Tests (Valid RED)</div><div class="st-desc">Worktree 생성 후 선행 실패 테스트 작성·커밋</div></div>
+        <div class="st-node" data-sizes="L,M,S"><div class="st-num"><span>06</span><span class="chip codex">Codex 단독</span></div><div class="st-id">Implement</div><div class="st-desc">제품 코드 작성 및 <code>no-test-change</code> 확인</div></div>
+        <div class="st-node strict-gate" data-sizes="L,M,S"><div class="st-num"><span>07</span><span class="chip script">checks</span></div><div class="st-id">Test · Lint · Build</div><div class="st-desc">전체 테스트 통과 및 정적 분석·빌드 검증</div></div>
+        <div class="st-node" data-sizes="L,M,S"><div class="st-num"><span>08</span><span class="chip claude">Opus / Sonnet / Gemini</span></div><div class="st-id">Impl Review</div><div class="st-desc">명세 준수 및 회귀 결함 코드 리뷰</div></div>
+        <div class="st-node" data-sizes="L,M,S"><div class="st-num"><span>09</span><span class="chip gemini">Gemini 3.8 Flash</span></div><div class="st-id">Security Review</div><div class="st-desc">보안 취약점 및 경계값(Edge case) 리뷰</div></div>
+        <div class="st-node" data-sizes="L,M,S"><div class="st-num"><span>09a</span><span class="chip claude">Opus 5.5 High</span></div><div class="st-id">Judge Verdict</div><div class="st-desc">리뷰 지적 타당성 판정 (<code>PASS</code> / <code>FIX</code>)</div></div>
+        <div class="st-node" data-sizes="L,M,S"><div class="st-num"><span>10 / 10b</span><span class="chip codex">Codex / 테스트저자</span></div><div class="st-id">Fix Loop (최대 2회)</div><div class="st-desc">코드 결함은 10, 테스트 결함은 10b에서 교정</div></div>
+        <div class="st-node" data-sizes="L,M,S"><div class="st-num"><span>11</span><span class="chip claude">Opus Accept</span></div><div class="st-id">Accept &amp; Commit</div><div class="st-desc">최종 수용(<code>ACCEPT: YES</code>) 후 브랜치 커밋·보고</div></div>
+        <div class="st-node human-gate" data-sizes="L,M,S"><div class="st-num"><span>12</span><span class="chip human">사용자 본인</span></div><div class="st-id">Final Merge</div><div class="st-desc">사람이 <code>report.md</code> 확인 후 <code>main</code> 병합</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 06. MULTI-PROVIDER ROLES & EVOLUTION ===================== -->
+<section class="sec alt slide-sec" id="providers">
+  <div class="container">
+    <div class="sec-header">
+      <span class="sec-kicker">06 / MULTI-PROVIDER ORCHESTRATION &amp; REAL-WORLD TUNING</span>
+      <h2>4대 AI 공급사 역할 분담과 "모델 길들이기" 실전 기록</h2>
+      <p>특정 모델에 사용량이 쏠리는 문제를 해결하기 위해 신규 공급사들을 도입하면서 겪은 <strong>성공(DeepSeek), 탈락(Xiaomi MiMo), 그리고 확장(Google Gemini 3.8 Flash)</strong>의 실제 엔지니어링 과정입니다.</p>
+    </div>
+
+    <div class="grid g4">
+      <div class="card" style="border-top:4px solid var(--claude);">
+        <span class="chip claude">Anthropic · Claude Code</span>
+        <h4 style="margin-top:10px;">설계자 &amp; 최종 대법관</h4>
+        <p style="font-size:14px;margin-bottom:10px;">복잡한 아키텍처 설계(<code>DESIGN.md</code>), 정밀 명세(<code>SPEC.md</code>), 그리고 모든 리뷰를 종합해 합불을 가르는 <code>judge</code>·<code>accept</code>를 전담합니다.</p>
+        <div class="mono" style="font-size:12px;color:var(--muted);margin-top:auto;">모델: claude-opus-5-5 (high/medium)<br>권한: Read-Only + CLAUDE_LEAN</div>
+      </div>
+
+      <div class="card" style="border-top:4px solid var(--codex);">
+        <span class="chip codex">OpenAI · Codex CLI</span>
+        <h4 style="margin-top:10px;">유일한 제품 코드 작성자</h4>
+        <p style="font-size:14px;margin-bottom:10px;">파이프라인 전체에서 유일하게 제품 소스를 수정(<code>workspace-write</code>)할 수 있습니다. 명세 리뷰와 구현 리뷰에도 참여합니다.</p>
+        <div class="mono" style="font-size:12px;color:var(--muted);margin-top:auto;">모델: gpt-6.1-sol (medium)<br>권한: Workspace-Write (tests/ 금지)</div>
+      </div>
+
+      <div class="card" style="border-top:4px solid var(--deepseek);">
+        <span class="chip deepseek">DeepSeek · 공식 API (경로 A)</span>
+        <h4 style="margin-top:10px;">복합 상태·계약 테스트 주력</h4>
+        <p style="font-size:14px;margin-bottom:10px;">Claude의 테스트 작성 부담(조각 2 사용량의 75%)을 덜어낸 일등 공신입니다. 상태 머신·Git 트랜잭션·런타임 훅 테스트를 저렴하고 정확하게 작성합니다.</p>
+        <div class="mono" style="font-size:12px;color:var(--muted);margin-top:auto;">모델: deepseek-v4.1-flash<br>하네스: Claude CLI Read/Grep/Glob</div>
+      </div>
+
+      <div class="card" style="border-top:4px solid var(--gemini);">
+        <span class="chip gemini">Google · Antigravity (agy)</span>
+        <h4 style="margin-top:10px;">보안 감시관 &amp; 교차 검증 확장</h4>
+        <p style="font-size:14px;margin-bottom:10px;">보안·엣지 케이스 리뷰를 전담하며, <code>--json-schema</code> 구조화 출력(D-95)과 원문 <code>QUOTE</code> 대조를 통해 순수/HTTP 테스트 및 독립 리뷰로 역할을 넓히고 있습니다.</p>
+        <div class="mono" style="font-size:12px;color:var(--muted);margin-top:auto;">모델: gemini-3.8-flash-high/medium<br>특징: 정상 코드 오탐 0건, 높은 쿼터 여력</div>
+      </div>
+    </div>
+
+    <h3 class="sub-title">신규 AI 공급사 도입 3대 실화: 무엇이 성패를 갈랐는가?</h3>
+    <div class="case-tabs">
+      <div class="case-card">
+        <span class="verdict-tag pass">성공 사례 · 주력 채택 (조각 4 40회 호출)</span>
+        <h4>DeepSeek V4.1 Flash: "성능 부족" 판정을 뒤집은 하네스·패킷 엔지니어링</h4>
+        <p style="font-size:14.5px;color:var(--text-2);">
+          처음 도입(D-24/D-29)했을 때는 중계 서버 타임아웃과 선행 상태 전제조건 누락(<code>StageOrderError</code>)으로 <strong>"성능이 부족해 쓰기 어렵다"</strong>는 결과가 나왔습니다. 하지만 모델 탓을 하기 전에 실행 조건을 진단(D-46)해 5가지를 바꿨습니다.
+        </p>
+        <ul style="font-size:13.5px;color:var(--text-2);display:grid;gap:5px;">
+          <li><strong>① 전송 경로 &amp; 하네스 전환(경로 A):</strong> 중계 서버를 버리고 공식 API에 Claude CLI 읽기 전용 도구(<code>Read,Grep,Glob</code>)를 결합</li>
+          <li><strong>② 1호출 1파일 소분할:</strong> 거대한 테스트 묶음을 <code>P4a/P4b</code>, 단일 파일 단위로 분해</li>
+          <li><strong>③ 닫힌 패킷(120KB 이하):</strong> 선행 상태 사슬(<code>ST-1.1</code>)과 허용 이름 목록을 인라인 제공</li>
+          <li><strong>④ 검증 불가 항목 사전 분리:</strong> 억지 추측 대신 <code>NOT COVERED</code>로 명시 허용</li>
+          <li><strong>⑤ 실행 결과 환류:</strong> Hermes가 실제 실행 에러를 돌려주어 교정 2회 내 100% 유효 RED 달성</li>
+        </ul>
+      </div>
+
+      <div class="case-card">
+        <span class="verdict-tag fail">탈락 사례 · 적용 보류 (D-37 &amp; D-58)</span>
+        <h4>Xiaomi MiMo V2.6 Pro: 외부 벤치마크와 달랐던 실전 타임아웃 한계</h4>
+        <p style="font-size:14.5px;color:var(--text-2);">
+          공개 벤치마크와 단가($0.435/$0.87)가 매력적이어서 DeepSeek과 똑같은 격리 읽기 전용 하네스(경로 A)를 주고 10회 정밀 평가(D-37)와 조각 4 실전 투입(D-58)을 진행했습니다.
+        </p>
+        <ul style="font-size:13.5px;color:var(--text-2);display:grid;gap:5px;">
+          <li><strong>D-37 평가 결과:</strong> 9회 호출 중 완성 응답 단 1회(<strong>11.1%</strong>), 나머지 보안·구현·명세 리뷰 및 상태/Git 테스트 <strong>7회 연속 20분(1,200초) 타임아웃</strong></li>
+          <li><strong>속도 격차:</strong> 유일하게 성공한 소형 스키마 테스트(N2 5건)도 DeepSeek(53.0초) 대비 <strong>10.23배(541.9초)</strong> 소요</li>
+          <li><strong>조각 4 실전(D-58):</strong> 타임아웃을 40분으로 늘리고 좁은 패킷을 줬음에도 <strong>4/4 연속 실패</strong> → 즉시 손절하고 DeepSeek으로 전환 완료</li>
+        </ul>
+      </div>
+
+      <div class="case-card">
+        <span class="verdict-tag expand">현재 진행형 · 투입 확대 로드맵</span>
+        <h4>Antigravity Gemini 3.8 Flash: DeepSeek의 성공 공식을 이식해 주력으로 확대</h4>
+        <p style="font-size:14.5px;color:var(--text-2);">
+          Claude·Codex 한도가 0%일 때도 Gemini 한도는 100% 남아 있었지만, 보안 리뷰 1석(비중 14~21%)에만 쓰이고 있었습니다. D-90 평가와 D-104 리허설을 통해 원인을 진단하고 확대 방안을 마련했습니다.
+        </p>
+        <ul style="font-size:13.5px;color:var(--text-2);display:grid;gap:5px;">
+          <li><strong>회계 병목 해소:</strong> <code>telemetry.js</code> 토큰에 가격표를 붙여 '미관측 일일 30회 공유 상한'에서 분리</li>
+          <li><strong>출력 스키마 &amp; 인용 100% 일치:</strong> <code>--json-schema</code> 확대 + <code>행번호|원문</code> &amp; <code>QUOTE {"file","line","text"}</code> 기계 대조로 D-104 인용 불일치 <strong>0건</strong> 입증</li>
+          <li><strong>역할 확대:</strong> ① <strong>Codex 동계열 자기검토를 대체하는 독립 리뷰/매핑 리뷰 1석</strong>, ② <strong>기반(`F01~F03`) 및 순수/HTTP(`B01~B04`) 테스트 1순위 작성</strong>, ③ <strong>Opus 수용 전 사전 근거표 스캔</strong></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 07. MECHANICAL EVIDENCE GATE & SAFETY ===================== -->
+<section class="sec slide-sec" id="safety">
+  <div class="container">
+    <div class="sec-header">
+      <span class="sec-kicker">07 / MECHANICAL VERIFICATION &amp; EVIDENCE GATE</span>
+      <h2>"끝났다"는 AI의 말을 믿지 않고, 런타임 증거로 판정합니다</h2>
+      <p>파이프라인의 가장 독창적인 기술 자산은 <strong>Python/Django 런타임 내부에 훅(Hook)을 심어 전용 파이프(FD3)로 실행 증거를 뽑아내는 증거 게이트(`SPEC-v5.3`)</strong>입니다.</p>
+    </div>
+
+    <div class="grid g2">
+      <div class="card">
+        <h3>🔬 FD3 런타임 증거 파이프 (`hermes_evidence`) 원리</h3>
+        <p style="margin-bottom:12px;">일반적인 CI는 테스트 프로세스의 종료 코드(<code>0</code> 또는 <code>1</code>)만 봅니다. 하지만 초기 프로젝트에서 <code>ImportError</code>나 설정 누락으로 러너가 죽어도 종료 코드는 <code>1</code>이 나오기 때문에 이를 정상적인 TDD 실패(RED)로 착각하는 치명적 문제가 있었습니다.</p>
+        <pre class="codeblock"><span class="cm"># pipeline/bin/checks --strict 실행 시 전용 파이프(FD 3) 연결</span>
+python -I -B adapters/hermes_evidence/django_runner.py \
+  --settings demo.settings --nonce <span class="hl">&lt;64-hex&gt;</span> <span class="kw">3&gt;&amp;1</span>
+
+<span class="cm"># FD3 스트림으로 방출되는 변조 불가능한 NDJSON 프레임 사슬:</span>
+1. <span class="ok">run_start</span>        (인터프리터 경로, Django/SQLite 버전, Nonce 결속)
+2. <span class="ok">settings_loaded</span>  (실제 로드된 DB ENGINE / :memory: 확인)
+3. <span class="ok">discovery_item</span>   (발견된 각 테스트 ID 등록)
+4. <span class="ok">case_start</span> → <span class="hl">case_body_start</span> (setUp 통과 후 실제 테스트 본문 진입 증명!)
+5. <span class="hl">hook_witness</span>     (발생한 AssertionError 객체 ID 및 traceback 발생 지점 포착)
+6. <span class="ok">case_body_end</span> → <span class="ok">case_result</span> → <span class="ok">case_stop</span> → <span class="ok">run_end</span></pre>
+      </div>
+
+      <div class="card">
+        <h3>🛡️ 4중 방어선: 파일 가드 · 어댑터 가림 차단 · 무효화 행렬</h3>
+        <div style="display:grid;gap:12px;margin-top:8px;">
+          <div style="padding:12px;border-radius:10px;background:var(--bg-alt);border:1px solid var(--border);">
+            <strong style="color:var(--accent);display:block;font-size:14.5px;">1. 어댑터 가림(Shadowing) 원천 차단 (조각 4 S1 강화)</strong>
+            <span style="font-size:13.5px;color:var(--text-2);">작업자 코드가 Worktree 루트에 <code>hermes_evidence.py</code>, <code>.pyc</code>, <code>.so</code>, 디렉터리, 심볼릭 링크를 만들어 증거 수집기를 가로채려 하면 실행 전에 <code>ADAPTER_SHADOWED</code>(exit 4)로 즉시 거부합니다.</span>
+          </div>
+          <div style="padding:12px;border-radius:10px;background:var(--bg-alt);border:1px solid var(--border);">
+            <strong style="color:var(--accent-2);display:block;font-size:14.5px;">2. 18순위 결정론적 증거 게이트 (`lib/evidence-gate.js`)</strong>
+            <span style="font-size:13.5px;color:var(--text-2);">Nonce 재사용, FD3 스트림 닫힘, JSON 스키마 위반, 시퀀스 누락, <code>originLinkage</code> 불일치, 매니페스트 테스트 누락 등을 1~18순위로 판정해 단 하나의 모호함도 허용하지 않습니다.</span>
+          </div>
+          <div style="padding:12px;border-radius:10px;background:var(--bg-alt);border:1px solid var(--border);">
+            <strong style="color:var(--amber);display:block;font-size:14.5px;">3. 16종 이벤트 연쇄 무효화 행렬 (`lib/state.js` `EFFECTS`)</strong>
+            <span style="font-size:13.5px;color:var(--text-2);">승인된 명세 바이트가 바뀌거나 기반 테스트가 수정되면, 그 이후에 받았던 비준·체크·리뷰·판정 레코드에 <code>invalidatedBySeq</code>가 자동으로 찍혀 과거 통과 기록으로 커밋하는 것을 막습니다.</span>
+          </div>
+          <div style="padding:12px;border-radius:10px;background:var(--bg-alt);border:1px solid var(--border);">
+            <strong style="color:var(--human);display:block;font-size:14.5px;">4. 3단계 원자적 커밋 &amp; 크래시 복구 (`reconcileCommit`)</strong>
+            <span style="font-size:13.5px;color:var(--text-2);">커밋 전 의도(<code>commit-intent</code>)를 기록하고 <code>Hermes-Transaction</code> 트레일러를 박아 커밋(<code>commit-exec</code>)한 뒤 재대조(<code>commit-readback</code>)합니다. 중간에 전원이 꺼져도 10개 복구 규칙으로 중복 커밋 없이 복원합니다.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 08. DUAL DELEGATED DRIVERS ===================== -->
+<section class="sec alt slide-sec" id="delegation">
+  <div class="container">
+    <div class="sec-header">
+      <span class="sec-kicker">08 / DUAL DELEGATED DRIVERS &amp; GOVERNANCE</span>
+      <h2>이중 위임 구동 체계: 구독 한도에 걸려도 멈추지 않는 운영</h2>
+      <p>사람이 일일이 명령어를 치지 않아도 <strong>위임 구동자(Claude Code 또는 Codex)</strong>가 규칙 문서(<code>2026-10-09-hermes-delegation-rules.md</code>)에 따라 Hermes를 운전하고, 한도에 걸리면 다른 구동자에게 바통을 넘깁니다.</p>
+    </div>
+
+    <div class="grid g2">
+      <div class="card" style="border-top:4px solid var(--success);">
+        <h4>🤖 위임 구동자가 자율로 처리하는 일</h4>
+        <ul style="color:var(--text-2);font-size:14.5px;display:grid;gap:8px;margin-top:10px;">
+          <li><strong>비대화형 백그라운드 실행 및 폴링:</strong> <code>driver/run-hermes.sh</code>와 <code>wait-hermes.sh</code>로 타임아웃 없이 긴 세션을 실행하고 <code>.done</code> 완료를 감시합니다.</li>
+          <li><strong>매 호출 전후 17개 보호 대상 해시 대조:</strong> <code>driver/protected-manifest.json</code>(지휘 도구 HEAD, <code>roles.json</code>, <code>SKILL.md</code>, 위임 규칙, <code>SPEC-v5.3</code> 정본 12개 파일)이 1바이트라도 바뀌면 즉시 중단합니다.</li>
+          <li><strong>예산 봉투(Envelope) 및 일일 상한 관리:</strong> 조각별 호출 상한과 일일 관측 비용($40 상한)을 매 호출 전 계산해 기록합니다.</li>
+          <li><strong>결정 원장(`D-01`~`D-104`) 투명 기록:</strong> 모든 위임 판단과 사용자 전달 결정을 이유·근거 해시와 함께 원장에 남깁니다.</li>
+        </ul>
+      </div>
+
+      <div class="card" style="border-top:4px solid var(--human);">
+        <h4>👤 반드시 사람(사용자 본인)만 할 수 있는 일</h4>
+        <ul style="color:var(--text-2);font-size:14.5px;display:grid;gap:8px;margin-top:10px;">
+          <li><strong>SEQ1 신규 프로젝트 승인 (`recordApproval`):</strong> 위임 구동자의 메시지가 아니라 <strong>사용자가 직접 입력한 원문 메시지 파일(<code>operatorEvidenceFile</code>)</strong>이 있어야만 상태 머신이 열립니다.</li>
+          <li><strong>SEQ5 기반 &amp; SEQ9 비즈니스 매핑 비준 (`recordRatification`):</strong> 어떤 수용 기준을 어떤 테스트 함수로 검증할지 확정하는 비준 역시 사용자 본인의 메시지 해시가 필수입니다.</li>
+          <li><strong>역할·모델·규칙·정본 명세 변경 (규칙 4.3):</strong> <code>roles.json</code>, 위임 규칙, 지휘 도구 기준선 변경은 구동자가 임의로 할 수 없습니다.</li>
+          <li><strong>최종 `main` 브랜치 병합(Merge) 및 배포:</strong> 모든 수용(<code>ACCEPT: YES</code>)이 끝나도 실제 반영은 사람이 직접 결정합니다.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:18px;">
+      <h4>🔄 구동자 상호 교대 프로토콜 (위임 규칙 3.7 · `Docs/hermes-driver-handoff.md`)</h4>
+      <p style="font-size:14.5px;margin-bottom:14px;">Claude 구독 한도가 소진되면 사용자가 Codex 창을 열어 <em>"위임 구동자로서 이어받아 진행해"</em> 한 줄만 입력하면 됩니다. 파일 기반 상태 기록 덕분에 맥락 손실이 0%입니다.</p>
+      <div class="grid g5">
+        <div style="padding:12px;border-radius:10px;background:var(--bg-alt);border:1px solid var(--border);font-size:13.5px;">
+          <strong style="color:var(--accent);display:block;">1. 한도/중단 감지</strong>
+          진행 중이던 구동자(예: Claude Code)가 <code>Docs/hermes-driver-state.md</code>에 현재 세션 ID와 진행 단계를 저장
+        </div>
+        <div style="padding:12px;border-radius:10px;background:var(--bg-alt);border:1px solid var(--border);font-size:13.5px;">
+          <strong style="color:var(--accent);display:block;">2. 새 구동자 지정</strong>
+          사용자가 여유 있는 구동자(예: Codex)에게 인수인계 문서 읽기를 지시 (두 구동자 동시 실행 금지)
+        </div>
+        <div style="padding:12px;border-radius:10px;background:var(--bg-alt);border:1px solid var(--border);font-size:13.5px;">
+          <strong style="color:var(--accent);display:block;">3. 4대 문서로 상태 복원</strong>
+          <code>driver-handoff.md</code>, <code>driver-state.md</code>, <code>delegated-decisions.md</code>, <code>state.json</code> 열람
+        </div>
+        <div style="padding:12px;border-radius:10px;background:var(--bg-alt);border:1px solid var(--border);font-size:13.5px;">
+          <strong style="color:var(--accent);display:block;">4. 실측 재검증</strong>
+          실행 중인 <code>hermes chat</code> 유무와 Worktree Git 상태, 보호 해시를 직접 명령어로 재확인
+        </div>
+        <div style="padding:12px;border-radius:10px;background:var(--bg-alt);border:1px solid var(--border);font-size:13.5px;">
+          <strong style="color:var(--accent);display:block;">5. 식별 표식 전환 재개</strong>
+          첫 줄을 <code>[위임 구동: Codex]</code>로 바꾸고 같은 Hermes 세션(<code>--resume</code>)을 이어서 구동
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 09. JOURNEY, SLICES & NUMBERS ===================== -->
+<section class="sec slide-sec" id="journey">
+  <div class="container">
+    <div class="sec-header">
+      <span class="sec-kicker">09 / MILESTONES &amp; VERIFIED NUMBERS</span>
+      <h2>파이프라인으로 파이프라인을 만들고 검증한 23일간의 기록</h2>
+      <p>2026년 9월 29일 첫 설계부터 10월 21일 D-104 실전형 리허설 최종 수용까지, <strong>파이프라인 자신의 엄격한 규칙을 사용하여 파이프라인 스스로를 구축(Bootstrapping)</strong>했습니다.</p>
+    </div>
+
+    <div class="grid g3">
+      <div class="card" style="border-top:4px solid var(--success);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <span class="mono" style="font-size:12px;color:var(--muted);">SLICE 01 · @ 5b1f52f</span>
+          <span class="chip codex">ACCEPT: YES</span>
+        </div>
+        <h4>조각 1: 검증기 및 증거 게이트</h4>
+        <p style="font-size:14px;margin-bottom:10px;">외부 패키지 없는 JSON Schema 검증기, 시맨틱 검증기, 18순위 증거 게이트, 매니페스트 정규화 해시 엔진 완성.</p>
+        <div class="mono" style="font-size:12px;color:var(--accent);">자동 테스트: 274 / 274 PASS (D-09 수용)</div>
+      </div>
+
+      <div class="card" style="border-top:4px solid var(--success);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <span class="mono" style="font-size:12px;color:var(--muted);">SLICE 02 · @ e86e95b</span>
+          <span class="chip codex">ACCEPT: YES</span>
+        </div>
+        <h4>조각 2: Strict 상태 머신 &amp; 3단계 커밋</h4>
+        <p style="font-size:14px;margin-bottom:10px;">22단계 상태 그래프, 16종 무효화 행렬, Worktree 스냅샷 가드, 3단계 트랜잭션 커밋 및 복구 규칙 구현.</p>
+        <div class="mono" style="font-size:12px;color:var(--accent);">자동 테스트: 441 / 441 PASS (D-23 수용)</div>
+      </div>
+
+      <div class="card" style="border-top:4px solid var(--success);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <span class="mono" style="font-size:12px;color:var(--muted);">SLICE 03a/3b · @ 9539a3f</span>
+          <span class="chip codex">ACCEPT: YES</span>
+        </div>
+        <h4>조각 3: Node 감독자 &amp; Python FD3 어댑터</h4>
+        <p style="font-size:14px;margin-bottom:10px;">Nonce 원장, 사전 환경 점검, <code>demo-lint.py</code>, <code>demo-build.py</code>, 그리고 Django <code>hermes_evidence</code> 계측 어댑터 완성 (<code>SPEC-v5.3</code> 확정).</p>
+        <div class="mono" style="font-size:12px;color:var(--accent);">테스트: Node 550 + Py 47 = 597 PASS (D-52)</div>
+      </div>
+
+      <div class="card" style="border-top:4px solid var(--success);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <span class="mono" style="font-size:12px;color:var(--muted);">SLICE 04 · @ 5cb78fd → beb7ab6</span>
+          <span class="chip codex">ACCEPT: YES &amp; MERGED</span>
+        </div>
+        <h4>조각 4: S1 가림 차단 강화 &amp; main 통합</h4>
+        <p style="font-size:14px;margin-bottom:10px;">Worktree 루트 동명 모듈 가림 전수 차단, 시그널/타임존 회귀 검증 완료 후 조각 1~4 전체를 <code>pipeline</code> <code>main</code> 브랜치로 통합.</p>
+        <div class="mono" style="font-size:12px;color:var(--accent);">테스트: Node 586 + Py 53 = 639 PASS (D-89/D-91)</div>
+      </div>
+
+      <div class="card" style="border-top:4px solid var(--accent-2);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <span class="mono" style="font-size:12px;color:var(--muted);">DEMO 01 · @ 847a824</span>
+          <span class="chip gemini">STRICT DEMO PASS</span>
+        </div>
+        <h4>합성 데모 1: `/demo-token/` 완주</h4>
+        <p style="font-size:14px;margin-bottom:10px;">첫 Strict <code>new-project</code> 종단간 실증. 사람 직접 승인/비준 3회(SEQ1·5·9)와 3개 마일스톤 커밋을 수정 루프 0회로 통과.</p>
+        <div class="mono" style="font-size:12px;color:var(--accent-2);">수용 기준: F01~F03 + B01~B02 (5/5 MET)</div>
+      </div>
+
+      <div class="card" style="border-top:4px solid var(--amber);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <span class="mono" style="font-size:12px;color:var(--muted);">REHEARSAL D-104 · @ ca355df</span>
+          <span class="chip hermes">2026-10-21 최신 완주!</span>
+        </div>
+        <h4>실전 리허설 2: `/pc-assets/status/` 최종 수용</h4>
+        <p style="font-size:14px;margin-bottom:10px;">본 파일럿 직전 9개 수용 기준(정상 200, JSON 스키마, 의존성 장애 시 503 전환·복구, 비허용 메서드 405, 무부작용 B05, 반복 일관성 B06) 완주 및 <code>runId</code> 정규식 입구 검증(<code>2e9225c</code>) 반영.</p>
+        <div class="mono" style="font-size:12px;color:var(--amber);">수용 기준: 9/9 MET · 테스트 640/640 PASS</div>
+      </div>
+    </div>
+
+    <div class="grid g2" style="margin-top:24px;">
+      <div class="card">
+        <h4>📊 조각 4 (총 118회 호출) 공급사별 작업 분담 실측</h4>
+        <p style="font-size:13.5px;color:var(--muted);margin-bottom:14px;">DeepSeek 도입으로 테스트 작성(40회)을 완벽히 분리한 실측 분포입니다.</p>
+        <div class="metric-bars">
+          <div class="m-bar"><span class="lbl">DeepSeek V4.1 Flash</span><div class="track"><div class="fill" style="width:100%;--c:var(--deepseek);"></div></div><span class="cnt">40회 (34%)</span></div>
+          <div class="m-bar"><span class="lbl">OpenAI GPT-6.1-sol</span><div class="track"><div class="fill" style="width:62.5%;--c:var(--codex);"></div></div><span class="cnt">25회 (21%)</span></div>
+          <div class="m-bar"><span class="lbl">Claude Opus / Sonnet 5.5</span><div class="track"><div class="fill" style="width:62.5%;--c:var(--claude);"></div></div><span class="cnt">25회 (21%)</span></div>
+          <div class="m-bar"><span class="lbl">Gemini 3.8 Flash (agy)</span><div class="track"><div class="fill" style="width:42.5%;--c:var(--gemini);"></div></div><span class="cnt">17회 (14%)</span></div>
+          <div class="m-bar"><span class="lbl">agy Opus 4.6 / MiMo</span><div class="track"><div class="fill" style="width:27.5%;--c:var(--muted);"></div></div><span class="cnt">11회 (9%)</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h4>📊 최신 D-104 상태 API 리허설 (본 실행 19회 + 누적 42/64회)</h4>
+        <p style="font-size:13.5px;color:var(--muted);margin-bottom:14px;">2026-10-21 완료된 <code>20261020-225026-pc-assets-status-d104</code> 실행의 정직한 회계 기록입니다.</p>
+        <div class="metric-bars">
+          <div class="m-bar"><span class="lbl"> 누적 전체 호출 (예산 64)</span><div class="track"><div class="fill" style="width:65.6%;--c:var(--accent);"></div></div><span class="cnt">42 / 64회</span></div>
+          <div class="m-bar"><span class="lbl">새 Run 본 실행 (예산 40)</span><div class="track"><div class="fill" style="width:47.5%;--c:var(--success);"></div></div><span class="cnt">19 / 40회</span></div>
+          <div class="m-bar"><span class="lbl">ㄴ Codex (구현2 + 리뷰6)</span><div class="track"><div class="fill" style="width:42.1%;--c:var(--codex);"></div></div><span class="cnt">8회 (42%)</span></div>
+          <div class="m-bar"><span class="lbl">ㄴ Claude Opus (판정4+수용2)</span><div class="track"><div class="fill" style="width:31.6%;--c:var(--claude);"></div></div><span class="cnt">6회 (32%)</span></div>
+          <div class="m-bar"><span class="lbl">ㄴ Gemini 3.8 Flash (보안4)</span><div class="track"><div class="fill" style="width:21.1%;--c:var(--gemini);"></div></div><span class="cnt">4회 (21%)</span></div>
+        </div>
+        <p style="font-size:12.5px;color:var(--muted);margin-top:12px;margin-bottom:0;">
+          ※ 정직한 회계 원칙: Claude CLI가 보고한 API 환산 비용(본 실행 6회 $5.64, 리허설 누적 12회 $9.20)만 확정 기록하며, CLI가 단가를 보고하지 않는 Codex/agy/DeepSeek 호출은 억지 $0으로 꾸미지 않고 <code>unobserved(unknown)</code>로 투명하게 분리합니다.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 10. 8 ENGINEERING LESSONS ===================== -->
+<section class="sec alt slide-sec" id="lessons">
+  <div class="container">
+    <div class="sec-header">
+      <span class="sec-kicker">10 / LESSONS LEARNED FROM 104 DECISIONS</span>
+      <h2>직접 부딪히며 얻은 8가지 엔지니어링 교훈</h2>
+      <p>이론적인 설계가 아니라, 실제 실패와 중단(<code>D-01</code>~<code>D-104</code>)을 겪으며 파이프라인 코드로 굳어진 실전 지혜입니다.</p>
+    </div>
+
+    <div class="grid g4">
+      <div class="card">
+        <span class="mono" style="font-size:12px;color:var(--accent);">LESSON 01 · D-46</span>
+        <h4 style="margin-top:6px;">모델을 탓하기 전에 하네스와 패킷을 먼저 의심하라</h4>
+        <p style="font-size:14px;">DeepSeek의 초기 실패는 모델 지능 탓이 아니라 파일 읽기 도구 부재와 과대한 단일 호출 범위 때문이었습니다. 도구를 맞추고 1파일 단위로 쪼개자 주력 작성자가 되었습니다.</p>
+      </div>
+      <div class="card">
+        <span class="mono" style="font-size:12px;color:var(--accent);">LESSON 02 · SPEC-v5</span>
+        <h4 style="margin-top:6px;">"테스트 실패(exit 1)"만으로는 진짜 RED를 증명할 수 없다</h4>
+        <p style="font-size:14px;">빈 프로젝트에서는 설정이나 임포트 에러로 죽어도 종료 코드가 1입니다. 기반(Foundation) GREEN을 먼저 통과시키고, FD3 훅으로 본문 <code>AssertionError</code>를 확인해야 진짜 TDD가 됩니다.</p>
+      </div>
+      <div class="card">
+        <span class="mono" style="font-size:12px;color:var(--accent);">LESSON 03 · CLAUDE_LEAN</span>
+        <h4 style="margin-top:6px;">CLI 기본 오버헤드만 꺼도 프롬프트의 80%가 줄어든다</h4>
+        <p style="font-size:14px;">Claude CLI 호출 시 전역 MCP·스킬·슬래시 명령·훅이 자동 로드되며 호출당 약 60K 토큰을 먹고 있었습니다. <code>CLAUDE_LEAN</code> 플래그로 이를 차단해 약 12K로 줄였습니다.</p>
+      </div>
+      <div class="card">
+        <span class="mono" style="font-size:12px;color:var(--accent);">LESSON 04 · D-95 &amp; D-104</span>
+        <h4 style="margin-top:6px;">자유 서술 리뷰 대신 JSON 스키마와 줄 번호 `QUOTE`를 강제하라</h4>
+        <p style="font-size:14px;">마크다운 헤더 오타(<code>## ## Reviewed</code>)나 백틱 누락으로 리뷰가 무효 처리되던 문제를 <code>--json-schema</code>와 <code>QUOTE {"file","line","text"}</code> 기계 대조로 100% 해결했습니다.</p>
+      </div>
+      <div class="card">
+        <span class="mono" style="font-size:12px;color:var(--accent);">LESSON 05 · D-03 &amp; S1</span>
+        <h4 style="margin-top:6px;">파이프라인과 대상 프로젝트의 실행 경계를 철저히 의심하라</h4>
+        <p style="font-size:14px;"><code>PYTHONPATH</code> 순서 하나 때문에 작업자 코드가 검증 어댑터를 덮어쓸 수 있다는 점을 명세 리뷰(D-52)와 보안 강화(조각 4 S1)에서 잡아내 사전 거부 로직으로 막았습니다.</p>
+      </div>
+      <div class="card">
+        <span class="mono" style="font-size:12px;color:var(--accent);">LESSON 06 · Effort Policy</span>
+        <h4 style="margin-top:6px;">추론 강도(Effort)는 높을수록 좋은 게 아니라 역할마다 다르다</h4>
+        <p style="font-size:14px;">모든 호출에 <code>high</code>를 쓰면 내부 추론 토큰(<code>thinkingTokens</code>가 출력의 85~96%)이 폭발해 65K 출력 한도에 걸립니다. 최종 판정(Opus)만 <code>high</code>로 고정하고 나머지는 <code>medium</code>과 분할 호출로 최적화했습니다.</p>
+      </div>
+      <div class="card">
+        <span class="mono" style="font-size:12px;color:var(--accent);">LESSON 07 · D-104</span>
+        <h4 style="margin-top:6px;">식별자 형식(Schema)은 출구가 아니라 입구에서 검증하라</h4>
+        <p style="font-size:14px;">D-96 첫 리허설에서 대문자 <code>D96</code>이 들어간 <code>runId</code>가 <code>strict-init</code>을 통과한 뒤 SEQ6 증거 게이트에서 <code>^[a-z0-9-]+$</code> 정규식에 걸려 멈췄습니다. 즉시 입구 검증(<code>2e9225c</code>)을 추가해 재발을 막았습니다.</p>
+      </div>
+      <div class="card">
+        <span class="mono" style="font-size:12px;color:var(--accent);">LESSON 08 · Accounting</span>
+        <h4 style="margin-top:6px;">모르는 비용을 $0으로 적지 말고, 축소된 독립성은 정직하게 공개하라</h4>
+        <p style="font-size:14px;">구독형 CLI의 미관측 비용은 <code>unknown</code>으로 남기고, 한도 때문에 같은 계열 모델이 리뷰했을 때는 보고서에 '독립성 축소'를 명시해 감사 신뢰성을 지켰습니다.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 11. REAL PILOT TARGET (PC ASSET MANAGEMENT) ===================== -->
+<section class="sec slide-sec" id="pilot">
+  <div class="container">
+    <div class="sec-header">
+      <span class="sec-kicker">11 / THE DESTINATION: REAL ENTERPRISE PILOT</span>
+      <h2>이 파이프라인으로 무엇을 만드는가 — 사내 PC 자산관리 시스템</h2>
+      <p>지금까지 만든 엄격한 파이프라인과 두 번의 리허설(<code>/demo-token/</code>, <code>/pc-assets/status/</code>)은 모두 실제 업무 시스템인 <strong>PC 자산관리 웹 애플리케이션(`projects/pc-asset-management`)</strong>을 무결점으로 구축하기 위한 발판이었습니다.</p>
+    </div>
+
+    <div class="grid g2">
+      <div class="card" style="border-top:4px solid var(--accent);">
+        <span class="chip codex">READY FOR LAUNCH · 본 파일럿 착수 준비 완료</span>
+        <h3 style="margin-top:10px;margin-bottom:10px;">임직원 1,000명 · PC 700대 규모의 실무 자산관리 플랫폼</h3>
+        <p style="font-size:15px;">기존에 3개의 복잡한 엑셀 파일(<code>Docs/pc-asset-management/*.xlsx</code>)로 수기 관리하던 노트북·데스크톱·IP·인사 변동·보증금 이력을 <strong>Python + Django + PostgreSQL</strong> 기반 웹 시스템으로 전환하는 프로젝트입니다.</p>
+        <ul style="font-size:14.5px;color:var(--text-2);display:grid;gap:8px;margin-top:14px;">
+          <li><strong>핵심 도메인 1 — 사람 ↔ PC 다중 할당 및 이력 일관성:</strong> 1인 다수 PC(노트북+데스크톱) 보유 허용, 대여·반납·교체·부서 이동 시 과거 이력 보존 및 현재 상태 정합성 강제.</li>
+          <li><strong>핵심 도메인 2 — 100위안 보증금 및 30일 회수 유예 규칙:</strong> 지급 시 보증금 납부/차감 상태 추적, 교체·퇴사 시 30일 반납 대기 상태 관리 및 기한 초과 경보.</li>
+          <li><strong>핵심 도메인 3 — 인사 엑셀 업로드 비교 &amp; 문제 데이터 모니터링:</strong> 인사팀 명단 업로드 시 입사·퇴사·이동을 자동 대조하고, 미반납·중복 할당·보증금 누락을 대시보드에 표시.</li>
+          <li><strong>데이터 보안 원칙 (규칙 4.7):</strong> 실제 임직원 이름·사번·IP가 담긴 원본 엑셀은 외부 AI 프롬프트에 직접 노출하지 않고, 스키마와 합성 픽스처 기반으로 안전하게 개발합니다.</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h3>🚀 향후 파이프라인 고도화 로드맵</h3>
+        <div style="display:grid;gap:12px;margin-top:12px;">
+          <div style="padding:14px;border-radius:10px;background:var(--bg-alt);border:1px solid var(--border);">
+            <strong style="color:var(--gemini);display:block;">Step 1 · Gemini 3.8 Flash 투입 대폭 확대 (즉시 적용 가능)</strong>
+            <span style="font-size:14px;color:var(--text-2);">가격표 기반 비용 관측 전환(미관측 30회 상한 분리), 429 쿼터 즉시 감지 패치, 그리고 <strong>매핑/독립 리뷰 1석 및 순수·HTTP 테스트 1순위 작성</strong>에 Gemini를 투입해 Codex·Claude 부담을 30% 이상 절감합니다.</span>
+          </div>
+          <div style="padding:14px;border-radius:10px;background:var(--bg-alt);border:1px solid var(--border);">
+            <strong style="color:var(--deepseek);display:block;">Step 2 · DeepSeek 공식 API의 `roles.json` 정식 통합 (D-34)</strong>
+            <span style="font-size:14px;color:var(--text-2);">조각 3~4와 리허설에서 검증된 DeepSeek 경로 A를 후보별 격리 환경변수로 <code>lib/command.js</code>와 <code>roles.json</code>에 정식 내장합니다.</span>
+          </div>
+          <div style="padding:14px;border-radius:10px;background:var(--bg-alt);border:1px solid var(--border);">
+            <strong style="color:var(--accent);display:block;">Step 3 · PC 자산관리 첫 수직 조각(Vertical Slice) 개발 착수</strong>
+            <span style="font-size:14px;color:var(--text-2);">이미 준비된 5대 기획 문서(<code>requirements.md</code>, <code>design-preparation.md</code>, <code>pilot.md</code>, <code>technology-proposal.md</code>, <code>initialization-plan.md</code>)를 바탕으로 첫 도메인 모델·검증 로직을 Strict 파이프라인으로 개발합니다.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 12. GLOSSARY & PRESENTATION Q&A ===================== -->
+<section class="sec alt slide-sec" id="glossary">
+  <div class="container">
+    <div class="sec-header">
+      <span class="sec-kicker">12 / FAQ &amp; GLOSSARY FOR AUDIENCES</span>
+      <h2>발표 단골 Q&amp;A 및 비전공자를 위한 친절한 용어 사전</h2>
+      <p>다른 사람에게 이 프로젝트를 소개할 때 가장 자주 받는 질문과 핵심 용어를 정리했습니다.</p>
+    </div>
+
+    <div class="grid g2">
+      <div>
+        <h3 class="sub-title" style="margin-top:0;">💬 자주 묻는 질문 (발표 Q&amp;A 대비)</h3>
+        <details class="deep" open>
+          <summary><span>Q1. 그냥 Claude나 Cursor 하나만 쓰면 더 빠르지 않나요?</span><span class="plus">+</span></summary>
+          <div class="deep-body" style="font-size:14.5px;color:var(--text-2);">
+            작은 프로토타입은 단일 도구로도 충분합니다. 하지만 ① 사내 핵심 업무 시스템처럼 <strong>수용 기준 누락이나 회귀 버그가 절대 없어야 하는 경우</strong>, ② 한 모델이 코드와 테스트를 같이 짜며 발생하는 <strong>착각 공유를 막아야 하는 경우</strong>, ③ 특정 구독의 <strong>5시간 사용 한도 때문에 개발이 멈추지 않아야 하는 경우</strong>에는 다중 공급사 분업과 기계적 증거 게이트가 필수적입니다.
+          </div>
+        </details>
+        <details class="deep">
+          <summary><span>Q2. AI가 테스트를 통과시키려고 테스트 코드를 지우거나 고치면 어쩌나요?</span><span class="plus">+</span></summary>
+          <div class="deep-body" style="font-size:14.5px;color:var(--text-2);">
+            원천적으로 불가능합니다. 테스트는 코드 구현 전에 먼저 작성되어 사람의 비준(<code>SEQ5</code>/<code>SEQ9</code>)과 함께 SHA-256 해시로 동결됩니다. 이후 코드를 구현하는 Codex 단계 직후에 <code>bin/guard no-test-change</code> 스크립트가 실행되어, <code>tests/</code> 폴더 안에 단 1바이트의 변경이라도 감지되면 즉시 원본 테스트를 복원하고 <code>test-tamper.md</code>(HIGH 결함)를 발행합니다.
+          </div>
+        </details>
+        <details class="deep">
+          <summary><span>Q3. 파이프라인을 돌리는 동안 사람이 계속 컴퓨터 앞에 있어야 하나요?</span><span class="plus">+</span></summary>
+          <div class="deep-body" style="font-size:14.5px;color:var(--text-2);">
+            아닙니다. <strong>위임 구동자(Claude Code 또는 Codex)</strong>가 백그라운드로 Hermes를 실행하고 결과를 점검합니다. 사람은 오직 정책/명세 승인(<code>SEQ1</code>), 테스트 매핑 비준(<code>SEQ5</code>·<code>SEQ9</code>), 최종 병합(Merge) 시점에만 개입하며, 도중에 멈추더라도 모든 상태가 디스크 원장(<code>state-history.jsonl</code>)에 남아 있어 언제든 이어 달릴 수 있습니다.
+          </div>
+        </details>
+      </div>
+
+      <div>
+        <h3 class="sub-title" style="margin-top:0;">📖 핵심 용어 사전</h3>
+        <details class="deep" open>
+          <summary><span>오케스트레이터 (Orchestrator · Hermes)</span><span class="plus">+</span></summary>
+          <div class="deep-body" style="font-size:14.5px;color:var(--text-2);">
+            오케스트라 지휘자가 직접 악기를 연주하지 않고 연주자들의 순서를 지휘하듯, 직접 코드를 짜지 않고 단계별로 알맞은 AI 작업자와 검증 스크립트를 호출·통제하는 사령탑입니다.
+          </div>
+        </details>
+        <details class="deep">
+          <summary><span>Git Worktree (격리 작업 공간)</span><span class="plus">+</span></summary>
+          <div class="deep-body" style="font-size:14.5px;color:var(--text-2);">
+            원본 코드 저장소를 건드리지 않고 별도의 폴더(<code>worktrees/</code>)와 전용 브랜치(<code>agent/&lt;run-id&gt;</code>)를 복제해 AI가 그 안에서만 작업하게 하는 안전장치입니다.
+          </div>
+        </details>
+        <details class="deep">
+          <summary><span>비준 (Ratification · SEQ5 / SEQ9)</span><span class="plus">+</span></summary>
+          <div class="deep-body" style="font-size:14.5px;color:var(--text-2);">
+            "요구사항 A는 테스트 함수 X로 채점한다"는 연결표(Manifest)를 독립 리뷰어들이 먼저 심사한 뒤, 최종적으로 사람이 직접 서명(승인 메시지 해시 기록)하여 동결하는 절차입니다.
+          </div>
+        </details>
+        <details class="deep">
+          <summary><span>FD3 증거 봉투 (Evidence Envelope)</span><span class="plus">+</span></summary>
+          <div class="deep-body" style="font-size:14.5px;color:var(--text-2);">
+            일반 화면 출력(stdout/stderr)과 분리된 3번 전용 통로(File Descriptor 3)를 통해 Python 테스트 러너 내부에서 실제로 어떤 함수가 실행됐고 어떤 단언(Assertion)이 실패했는지 변조 없이 수집한 데이터 묶음입니다.
+          </div>
+        </details>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== FOOTER ===================== -->
+<footer class="site-foot">
+  <div class="container" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:24px;">
+    <div>
+      <div class="brand" style="margin-bottom:8px;">
+        <span class="brand-logo">H</span>
+        <span style="color:var(--text);">Hermes Multi-Agent AI Development Pipeline</span>
+      </div>
+      <p style="margin:0;max-width:520px;">
+        설계·명세 정본: <code>SPEC-v5.3</code> (D-52) · 지휘 도구 기준선: <code>pipeline main @ 2e9225c</code> (D-104) · 작성 기준일: 2026-10-21
+      </p>
+    </div>
+    <div class="mono" style="font-size:12px;">
+      <div>위치: <code>/Volumes/SSD_1TB/Projects_Hermes/Docs/hermes-pipeline-website/index3.html</code></div>
+      <div style="margin-top:4px;">단축키: <code>P</code> (슬라이드 발표 모드) · <code>← / →</code> (섹션 이동) · <code>N</code> (발표자 노트 토글)</div>
+    </div>
+  </div>
+</footer>
+
+<!-- Presentation HUD -->
+<div class="pres-hud" id="presHud" aria-live="polite">
+  <span id="slideIndicator">1 / 12</span>
+  <button type="button" id="prevSlide" title="이전 섹션 (←)">←</button>
+  <button type="button" id="nextSlide" title="다음 섹션 (→)">→</button>
+  <button type="button" id="exitPres" title="발표 모드 종료 (Esc)">✕</button>
+</div>
+
+<!-- ===================== INTERACTIVE SCRIPTS ===================== -->
+<script>
+(() => {
+  const html = document.documentElement;
+
+  // 1. Interactive Blueprint Inspector in Hero
+  const bpData = {
+    human: {
+      title: 'TIER 1 · 사람 (IT 관리자 · 최종 결정권자)',
+      desc: '일상적인 파일 전달·테스트 실행·교정 지시는 위임 구동자와 Hermes가 자동 처리합니다. 사람은 오직 ① 명세·수용기준 승인(SEQ1), ② 기반/업무 테스트 매핑 비준(SEQ5·SEQ9), ③ 수용 완료된 브랜치의 최종 병합(Merge)만 결정합니다.'
+    },
+    driver: {
+      title: 'TIER 2 · 복수 위임 구동자 (Claude Code ↔ Codex 상호 교대)',
+      desc: 'driver/run-hermes.sh 로 비대화형 세션을 실행하고, 매 호출 전후 protected-manifest.json(17개 핵심 파일 해시)과 일일 예산 상한을 감사합니다. 한쪽 구독 한도가 소진되면 hermes-driver-handoff.md 절차에 따라 즉시 교대합니다.'
+    },
+    hermes: {
+      title: 'TIER 3 · Hermes 지휘자 + 결정론적 게이트 (Node.js & Python)',
+      desc: 'Hermes 두뇌는 직접 제품 코드나 테스트를 작성하지 않습니다. pipeline/bin/* 스크립트를 통해 22단계 상태 머신(state.js), FD3 런타임 증거 게이트(evidence-gate.js), 스냅샷 가드(guard.js)를 실행합니다.'
+    },
+    claude: {
+      title: 'WORKER · Anthropic Claude Code (Opus 5.5 / Sonnet 5.5)',
+      desc: '아키텍처 설계(DESIGN.md), 정밀 명세(SPEC.md), 그리고 모든 리뷰 지적의 채택 여부를 최종 결정하는 Judge(9a) 및 Accept(11) 역할을 수행합니다. CLAUDE_LEAN 옵션으로 불필요한 기본 토큰 80%를 절감합니다.'
+    },
+    deepseek: {
+      title: 'WORKER · DeepSeek V4.1 Flash (공식 API 경로 A)',
+      desc: 'Claude CLI의 읽기 전용 도구(Read, Grep, Glob) 하네스와 1호출 1파일 패킷 분할(D-46)을 결합해 복잡한 상태 머신·Git 트랜잭션·런타임 훅 TDD 테스트를 작성하는 주력 테스트 작성자입니다.'
+    },
+    codex: {
+      title: 'WORKER · OpenAI Codex CLI (GPT-6.1-sol)',
+      desc: '파이프라인에서 유일하게 workspace-write 권한을 가진 제품 코드 구현자입니다. 단, tests/ 디렉터리 수정은 guard no-test-change 에 의해 엄격히 차단됩니다.'
+    },
+    gemini: {
+      title: 'WORKER · Google Antigravity (Gemini 3.8 Flash High/Medium)',
+      desc: '보안·엣지 케이스 리뷰를 전담하며 --json-schema 구조화 출력(D-95)과 줄 번호 원문 QUOTE 대조(D-104 100% 일치)를 통해 순수/HTTP 테스트 작성 및 교차 독립 리뷰로 투입을 확대하고 있습니다.'
+    },
+    worktree: {
+      title: 'TIER 4 · 격리된 Git Worktree & 3단계 트랜잭션 커밋',
+      desc: '모든 작업은 원본 저장소가 아닌 worktrees/<프로젝트>-<run-id> 격리 브랜치에서 수행됩니다. commit-intent → commit-exec → commit-readback 3단계 트랜잭션으로 크래시에도 안전한 커밋을 보장합니다.'
+    }
+  };
+
+  const bpInspector = document.getElementById('bpInspector');
+  const bpClickables = document.querySelectorAll('[data-bp]');
+  bpClickables.forEach(el => {
+    el.addEventListener('click', () => {
+      bpClickables.forEach(n => n.classList.remove('active'));
+      el.classList.add('active');
+      const info = bpData[el.dataset.bp];
+      if (info && bpInspector) {
+        bpInspector.innerHTML = `<strong>${info.title}</strong>${info.desc}`;
+      }
+    });
+  });
+
+  // 2. Workflow Simulator Tabs (Summary vs Strict 22 vs Legacy S/M/L)
+  const wfTabs = document.querySelectorAll('[data-wf]');
+  const wfPanels = {
+    summary: document.getElementById('wf-summary'),
+    strict: document.getElementById('wf-strict'),
+    legacy: document.getElementById('wf-legacy')
+  };
+  wfTabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      wfTabs.forEach(t => t.setAttribute('aria-selected', String(t === tab)));
+      Object.entries(wfPanels).forEach(([k, panel]) => {
+        if (panel) panel.classList.toggle('active', k === tab.dataset.wf);
+      });
+    });
+  });
+
+  // Legacy S/M/L Size Filter
+  const sizeBtns = document.querySelectorAll('[data-size]');
+  const legacyNodes = document.querySelectorAll('#legacyGrid .st-node');
+  sizeBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const sz = btn.dataset.size;
+      sizeBtns.forEach(b => b.setAttribute('aria-pressed', String(b === btn)));
+      legacyNodes.forEach(node => {
+        const allowed = (node.dataset.sizes || '').split(',');
+        node.classList.toggle('skipped', !allowed.includes(sz));
+      });
+    });
+  });
+
+  // 3. Toolbar Toggles: Easy Mode, Speaker Notes, Theme, Presentation Mode
+  const easyBtn = document.getElementById('easyModeBtn');
+  easyBtn?.addEventListener('click', () => {
+    const isEasy = html.getAttribute('data-view') === 'easy';
+    html.setAttribute('data-view', isEasy ? 'all' : 'easy');
+    easyBtn.setAttribute('aria-pressed', String(!isEasy));
+  });
+
+  const notesBtn = document.getElementById('notesBtn');
+  const toggleNotes = () => {
+    const on = document.body.classList.toggle('show-notes');
+    notesBtn?.setAttribute('aria-pressed', String(on));
+  };
+  notesBtn?.addEventListener('click', toggleNotes);
+
+  const themeBtn = document.getElementById('themeBtn');
+  themeBtn?.addEventListener('click', () => {
+    const isDark = html.getAttribute('data-theme') === 'dark';
+    html.setAttribute('data-theme', isDark ? 'light' : 'dark');
+    themeBtn.textContent = isDark ? '🌙 다크' : '☀️ 라이트';
+  });
+
+  // 4. Slide Presentation Mode & Active Section Tracking
+  const presentBtn = document.getElementById('presentBtn');
+  const exitPres = document.getElementById('exitPres');
+  const prevSlide = document.getElementById('prevSlide');
+  const nextSlide = document.getElementById('nextSlide');
+  const slideIndicator = document.getElementById('slideIndicator');
+  const slides = Array.from(document.querySelectorAll('.slide-sec'));
+  const navLinks = Array.from(document.querySelectorAll('.nav-scroll a'));
+  let curSlide = 0;
+
+  function setPresent(on) {
+    html.classList.toggle('present', on);
+    presentBtn?.setAttribute('aria-pressed', String(on));
+    updateSlideHud();
+  }
+
+  function goToSlide(idx) {
+    curSlide = Math.max(0, Math.min(slides.length - 1, idx));
+    slides[curSlide].scrollIntoView({ behavior: 'smooth', block: 'start' });
+    updateSlideHud();
+  }
+
+  function updateSlideHud() {
+    if (slideIndicator) slideIndicator.textContent = `${curSlide + 1} / ${slides.length}`;
+  }
+
+  presentBtn?.addEventListener('click', () => setPresent(!html.classList.contains('present')));
+  exitPres?.addEventListener('click', () => setPresent(false));
+  prevSlide?.addEventListener('click', () => goToSlide(curSlide - 1));
+  nextSlide?.addEventListener('click', () => goToSlide(curSlide + 1));
+
+  // IntersectionObserver for active nav & slide index
+  const io = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        const i = slides.indexOf(e.target);
+        if (i >= 0) {
+          curSlide = i;
+          updateSlideHud();
+        }
+        const id = e.target.id;
+        navLinks.forEach(a => a.classList.toggle('active', a.getAttribute('href') === `#${id}`));
+      }
+    });
+  }, { threshold: 0.25 });
+  slides.forEach(s => io.observe(s));
+
+  // Keyboard shortcuts
+  window.addEventListener('keydown', e => {
+    if (['INPUT', 'TEXTAREA'].includes(e.target?.tagName)) return;
+    if (e.key === 'p' || e.key === 'P') {
+      e.preventDefault();
+      setPresent(!html.classList.contains('present'));
+    } else if (e.key === 'n' || e.key === 'N') {
+      e.preventDefault();
+      toggleNotes();
+    } else if (html.classList.contains('present')) {
+      if (['ArrowRight', 'PageDown', ' '].includes(e.key)) {
+        e.preventDefault();
+        goToSlide(curSlide + 1);
+      } else if (['ArrowLeft', 'PageUp'].includes(e.key)) {
+        e.preventDefault();
+        goToSlide(curSlide - 1);
+      } else if (e.key === 'Escape') {
+        setPresent(false);
+      }
+    }
+  });
+})();
+</script>
+</body>
+</html>
